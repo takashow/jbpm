@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,13 +16,8 @@
 
 package org.jbpm.process;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
-import org.drools.core.process.core.Work;
-import org.drools.core.process.core.impl.WorkImpl;
+import org.jbpm.process.core.Work;
+import org.jbpm.process.core.impl.WorkImpl;
 import org.jbpm.process.instance.impl.Action;
 import org.jbpm.process.test.TestProcessEventListener;
 import org.jbpm.ruleflow.core.RuleFlowProcess;
@@ -44,6 +39,8 @@ import org.kie.api.runtime.process.WorkItem;
 import org.kie.api.runtime.process.WorkItemHandler;
 import org.kie.api.runtime.process.WorkItemManager;
 import org.slf4j.LoggerFactory;
+
+import static org.junit.Assert.*;
 
 public class SubProcessTest extends AbstractBaseTest  {
     

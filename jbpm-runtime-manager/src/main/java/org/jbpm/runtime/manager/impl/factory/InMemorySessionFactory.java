@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 JBoss Inc
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,8 +17,15 @@ package org.jbpm.runtime.manager.impl.factory;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
+import org.drools.core.impl.StatefulKnowledgeSessionImpl;
+import org.jbpm.process.instance.ProcessInstanceManager;
+import org.jbpm.process.instance.ProcessRuntimeImpl;
+import org.jbpm.process.instance.impl.DefaultProcessInstanceManager;
 import org.kie.api.KieBase;
+import org.kie.api.runtime.Environment;
+import org.kie.api.runtime.EnvironmentName;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.manager.RuntimeEnvironment;
 import org.kie.internal.runtime.manager.SessionFactory;
@@ -33,25 +40,35 @@ import org.kie.internal.runtime.manager.SessionNotFoundException;
  */
 public class InMemorySessionFactory implements SessionFactory {
 
+    private AtomicLong processCounter = new AtomicLong(0);
+    
     private RuntimeEnvironment environment;
     private KieBase kbase;
-    // TODO all sessions stored here should be proxied so it can be removed on dispose/destroy
-    private Map<Integer, KieSession> sessions = new ConcurrentHashMap<Integer, KieSession>();
+    private Map<Long, KieSession> sessions = new ConcurrentHashMap<Long, KieSession>();
+    private String owner;
     
-    public InMemorySessionFactory(RuntimeEnvironment environment) {
+    public InMemorySessionFactory(RuntimeEnvironment environment, String owner) {
         this.environment = environment;
         this.kbase = environment.getKieBase();
+        this.owner = owner;
     }
     
     @Override
     public KieSession newKieSession() {
-        KieSession ksession = kbase.newKieSession(environment.getConfiguration(), environment.getEnvironment());
-        this.sessions.put(ksession.getId(), ksession);
+        Environment env = environment.getEnvironment();
+        env.set(EnvironmentName.DEPLOYMENT_ID, owner);
+        KieSession ksession = kbase.newKieSession(environment.getConfiguration(), env);
+        this.sessions.put(ksession.getIdentifier(), ksession);
+        
+        ProcessInstanceManager piManager = ((ProcessRuntimeImpl)((StatefulKnowledgeSessionImpl)ksession).getProcessRuntime()).getProcessInstanceManager();
+        if (piManager instanceof DefaultProcessInstanceManager) {
+            ((DefaultProcessInstanceManager) piManager).setProcessCounter(processCounter);
+        }
         return ksession;
     }
 
     @Override
-    public KieSession findKieSessionById(Integer sessionId) {
+    public KieSession findKieSessionById(Long sessionId) {
         if (sessions.containsKey(sessionId)) {
             return sessions.get(sessionId);
         } else {
@@ -62,6 +79,15 @@ public class InMemorySessionFactory implements SessionFactory {
     @Override
     public void close() {
         sessions.clear();
+    }
+
+    @Override
+    public void onDispose(Long sessionId) {
+        sessions.remove(sessionId);
+    }
+    
+    protected Map<Long, KieSession> getSessions() {
+        return sessions;
     }
 
 }

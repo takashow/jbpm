@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 JBoss Inc
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -27,7 +27,6 @@ import org.drools.core.impl.EnvironmentFactory;
 import org.jbpm.process.audit.AbstractAuditLogger;
 import org.jbpm.process.audit.AuditLoggerFactory;
 import org.jbpm.process.audit.event.AuditEventBuilder;
-import org.jbpm.process.instance.event.listeners.TriggerRulesEventListener;
 import org.jbpm.runtime.manager.impl.jpa.EntityManagerFactoryManager;
 import org.jbpm.services.task.audit.JPATaskLifeCycleEventListener;
 import org.jbpm.services.task.wih.LocalHTWorkItemHandler;
@@ -40,6 +39,8 @@ import org.kie.api.runtime.manager.RuntimeEngine;
 import org.kie.api.runtime.manager.RuntimeManager;
 import org.kie.api.runtime.process.WorkItemHandler;
 import org.kie.api.task.TaskLifeCycleEventListener;
+import org.kie.internal.runtime.Cacheable;
+import org.kie.internal.runtime.Closeable;
 import org.kie.internal.runtime.conf.AuditMode;
 import org.kie.internal.runtime.conf.DeploymentDescriptor;
 import org.kie.internal.runtime.conf.NamedObjectModel;
@@ -75,7 +76,9 @@ public class DefaultRegisterableItemsFactory extends SimpleRegisterableItemsFact
         Map<String, WorkItemHandler> defaultHandlers = new HashMap<String, WorkItemHandler>();
         //HT handler 
         WorkItemHandler handler = getHTWorkItemHandler(runtime);
-        defaultHandlers.put("Human Task", handler);
+        if (handler != null) {
+            defaultHandlers.put("Human Task", handler);
+        }
         // add any custom registered
         defaultHandlers.putAll(super.getWorkItemHandlers(runtime));
         // add handlers from descriptor
@@ -131,7 +134,6 @@ public class DefaultRegisterableItemsFactory extends SimpleRegisterableItemsFact
     @Override
     public List<AgendaEventListener> getAgendaEventListeners(RuntimeEngine runtime) {
         List<AgendaEventListener> defaultListeners = new ArrayList<AgendaEventListener>();
-        defaultListeners.add(new TriggerRulesEventListener(runtime.getKieSession()));
         // add any custom listeners
         defaultListeners.addAll(super.getAgendaEventListeners(runtime));
         // add listeners from descriptor
@@ -205,7 +207,7 @@ public class DefaultRegisterableItemsFactory extends SimpleRegisterableItemsFact
     protected Object getInstanceFromModel(ObjectModel model, ClassLoader classloader, Map<String, Object> contaxtParams) {
     	ObjectModelResolver resolver = ObjectModelResolverProvider.get(model.getResolver());
 		if (resolver == null) {
-			logger.warn("Unable to find ObjectModelResolver for {}", model.getResolver());
+		    throw new IllegalStateException("Unable to find ObjectModelResolver for " + model.getResolver());
 		}
 		
 		return resolver.getInstance(model, classloader, contaxtParams);
@@ -215,11 +217,17 @@ public class DefaultRegisterableItemsFactory extends SimpleRegisterableItemsFact
         RuntimeManager manager = ((RuntimeEngineImpl)runtime).getManager();
         Map<String, Object> parameters = new HashMap<String, Object>();
         parameters.put("ksession", runtime.getKieSession());
-        parameters.put("taskService", runtime.getTaskService());
+        
+        try {
+            parameters.put("taskService", runtime.getTaskService());
+        } catch (UnsupportedOperationException e) {
+            // in case task service was not configured
+        }
         parameters.put("runtimeManager", manager);
         parameters.put("classLoader", getRuntimeManager().getEnvironment().getClassLoader());
         parameters.put("entityManagerFactory", 
         		runtime.getKieSession().getEnvironment().get(EnvironmentName.ENTITY_MANAGER_FACTORY));
+        parameters.put("kieContainer", getRuntimeManager().getKieContainer());
         
         return parameters;
     }
@@ -231,6 +239,7 @@ public class DefaultRegisterableItemsFactory extends SimpleRegisterableItemsFact
         	Map<String, Object> params = new HashMap<String, Object>();
         	params.put("runtimeManager", getRuntimeManager());
         	params.put("classLoader", getRuntimeManager().getEnvironment().getClassLoader());
+        	params.put("kieContainer", getRuntimeManager().getKieContainer());
         	for (ObjectModel model : descriptor.getTaskEventListeners()) {
         		Object taskListener = getInstanceFromModel(model, getRuntimeManager().getEnvironment().getClassLoader(), params);
         		if (taskListener != null) {
@@ -268,6 +277,11 @@ public class DefaultRegisterableItemsFactory extends SimpleRegisterableItemsFact
         		Object listenerInstance = getInstanceFromModel(model, getRuntimeManager().getEnvironment().getClassLoader(), params);
         		if (listenerInstance != null && type.isAssignableFrom(listenerInstance.getClass())) {
         			listeners.add((T) listenerInstance);
+        		} else {
+        		    // close/cleanup instance as it is not going to be used at the moment, except these that are cacheable
+        		    if (listenerInstance instanceof Closeable && !(listenerInstance instanceof Cacheable)) {
+        		        ((Closeable) listenerInstance).close();
+        		    }
         		}
         	}
         }

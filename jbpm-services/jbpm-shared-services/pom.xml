@@ -5,15 +5,22 @@
   <parent>
     <groupId>org.jbpm</groupId>
     <artifactId>jbpm-services</artifactId>
-    <version>6.3.0-SNAPSHOT</version>
+    <version>7.7.0-SNAPSHOT</version>
   </parent>
-  <groupId>org.jbpm</groupId>
   <artifactId>jbpm-shared-services</artifactId>
   <packaging>bundle</packaging>
 
   <name>jBPM :: Shared Services</name>
 
+  <properties>
+    <java.module.name>org.jbpm.shared.services</java.module.name>
+  </properties>
+
   <dependencies>
+    <dependency>
+      <groupId>org.drools</groupId>
+      <artifactId>drools-persistence-api</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.drools</groupId>
       <artifactId>drools-persistence-jpa</artifactId>
@@ -37,17 +44,14 @@
 
     <dependency>
       <groupId>org.hibernate.javax.persistence</groupId>
-      <artifactId>hibernate-jpa-2.0-api</artifactId>
+      <artifactId>hibernate-jpa-2.1-api</artifactId>
     </dependency>
     <dependency>
       <groupId>org.jboss.spec.javax.transaction</groupId>
-      <artifactId>jboss-transaction-api_1.1_spec</artifactId>
+      <artifactId>jboss-transaction-api_1.2_spec</artifactId>
     </dependency>
 
-
-
     <!-- test -->
-
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
@@ -76,12 +80,9 @@
         <artifactId>maven-bundle-plugin</artifactId>
         <configuration>
           <instructions>
-            <Bundle-SymbolicName>org.jbpm.shared.services</Bundle-SymbolicName>
             <Import-Package>
               !org.jbpm.shared.services, org.jboss.solder.core;resolution:=optional,*
             </Import-Package>
-            <Private-Package>
-            </Private-Package>
             <Export-Package>
               org.jbpm.shared.services*
             </Export-Package>

@@ -1,20 +1,21 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package org.jbpm.services.task;
 
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -29,10 +30,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.assertj.core.api.Fail;
+import org.jbpm.services.task.events.DefaultTaskEventListener;
 import org.jbpm.services.task.exception.PermissionDeniedException;
 import org.jbpm.services.task.impl.factories.TaskFactory;
+import org.jbpm.services.task.impl.model.xml.JaxbContent;
 import org.jbpm.services.task.utils.ContentMarshallerHelper;
 import org.junit.Test;
+import org.kie.api.task.TaskEvent;
+import org.kie.api.task.TaskLifeCycleEventListener;
 import org.kie.api.task.model.Comment;
 import org.kie.api.task.model.Content;
 import org.kie.api.task.model.Group;
@@ -42,9 +48,11 @@ import org.kie.api.task.model.Status;
 import org.kie.api.task.model.Task;
 import org.kie.api.task.model.TaskSummary;
 import org.kie.api.task.model.User;
+import org.kie.internal.task.api.EventService;
 import org.kie.internal.task.api.TaskModelProvider;
 import org.kie.internal.task.api.model.AccessType;
 import org.kie.internal.task.api.model.ContentData;
+import org.kie.internal.task.api.model.FaultData;
 import org.kie.internal.task.api.model.InternalComment;
 import org.kie.internal.task.api.model.InternalI18NText;
 import org.kie.internal.task.api.model.InternalOrganizationalEntity;
@@ -54,7 +62,6 @@ import org.kie.internal.task.api.model.InternalTaskData;
 
 public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
 
-    
     @Test
     /*
     * Related to BZ-1105868 
@@ -143,9 +150,9 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('Bobba Fet') ],businessAdministrators = [ new User('Administrator') ], }),";
         str += "name =  'This is my task name' })";
 
-        ContentData data = ContentMarshallerHelper.marshal("content", null);
+        ContentData data = ContentMarshallerHelper.marshal(null, "content", null);
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, data);
 
         long taskId = task.getId();
@@ -167,8 +174,6 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
     
     @Test
     public void testNewTaskWithMapContent() {
-        
-        
         String str = "(with (new Task()) { priority = 55, taskData = (with( new TaskData()) { } ), ";
         str += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('Bobba Fet') ],businessAdministrators = [ new User('Administrator') ], }),";                        
         str += "name =  'This is my task name' })";
@@ -177,36 +182,33 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         variablesMap.put("key1", "value1");
         variablesMap.put("key2", null);
         variablesMap.put("key3", "value3");
-        ContentData data = ContentMarshallerHelper.marshal(variablesMap, null);
+        ContentData data = ContentMarshallerHelper.marshal(null, variablesMap, null);
         
-        Task task = ( Task )  TaskFactory.evalTask( new StringReader( str ));
+        Task task = TaskFactory.evalTask( new StringReader( str ));
         taskService.addTask( task, data );
         
         long taskId = task.getId();
         
         // Task should be assigned to the single potential owner and state set to Reserved
-        
-        
         Task task1 = taskService.getTaskById( taskId );
         assertEquals( AccessType.Inline, ((InternalTaskData) task1.getTaskData()).getDocumentAccessType() );
         assertEquals( "java.util.HashMap", task1.getTaskData().getDocumentType() );
         long contentId = task1.getTaskData().getDocumentContentId();
         assertTrue( contentId != -1 ); 
-
-        
-        
+       
+        // content
         Content content = taskService.getContentById(contentId);
         Object unmarshalledObject = ContentMarshallerHelper.unmarshall(content.getContent(), null);
         if(!(unmarshalledObject instanceof Map)){
             fail("The variables should be a Map");
-        
         }
         Map<String, Object> unmarshalledvars = (Map<String, Object>)unmarshalledObject;
+        JaxbContent jaxbContent = xmlRoundTripContent(content);
+        assertNotNull( "Jaxb Content map not filled", jaxbContent.getContentMap());
         
         assertEquals("value1",unmarshalledvars.get("key1") );
         assertNull(unmarshalledvars.get("key2") );
         assertEquals("value3",unmarshalledvars.get("key3") );
-        xmlRoundTripContent(content);
     }
     
     /*
@@ -231,9 +233,9 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         variablesMap.put("key1", "value1");
         variablesMap.put("key2", null);
         variablesMap.put("key3", "value3");
-        ContentData data = ContentMarshallerHelper.marshal(variablesMap, null);
+        ContentData data = ContentMarshallerHelper.marshal(null, variablesMap, null);
         
-        Task task = ( Task )  TaskFactory.evalTask( new StringReader( str ));
+        Task task = TaskFactory.evalTask( new StringReader( str ));
         taskService.addTask( task, data );
         
         long taskId = task.getId();
@@ -313,9 +315,9 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
             largeContent += i + "xxxxxxxxx";
         }
 
-        ContentData data = ContentMarshallerHelper.marshal(largeContent, null);
+        ContentData data = ContentMarshallerHelper.marshal(null, largeContent, null);
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, data);
 
         long taskId = task.getId();
@@ -345,7 +347,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name =  'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -374,7 +376,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -392,111 +394,6 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         assertEquals("Darth Vader", task2.getTaskData().getActualOwner().getId());
     }
     
-    
-     @Test
-    public void testForwardGroupClaimQueryAssignee() throws Exception {
-        
-
-        // One potential owner, should go straight to state Reserved
-        String str = "(with (new Task()) { priority = 55, taskData = (with( new TaskData()) { } ), ";
-        str += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('salaboy' )], businessAdministrators = [ new User('Administrator') ], }),";
-        str += "name =  'This is my task name' })";
-        
-        // One potential owner, should go straight to state Reserved
-        String str2 = "(with (new Task()) { priority = 55, taskData = (with( new TaskData()) { } ), ";
-        str2 += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('salaboy')], businessAdministrators = [ new User('Administrator') ], }),";
-        str2 += "name = 'This is my second task name' })";
-
-         // One potential owner, should go straight to state Reserved
-        String str3 = "(with (new Task()) { priority = 55, taskData = (with( new TaskData()) { } ), ";
-        str3 += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new Group('Crusaders'), new Group('Knights Templer')], businessAdministrators = [ new User('Administrator') ], }),";
-        str3 += "name = 'This is my third task name' })";
-        
-        
-        List<String> groupIds = new ArrayList<String>();
-        
-        groupIds.add("Knights Templer");
-        groupIds.add("non existing group");
-        groupIds.add("non existing group 2");
-        groupIds.add("Crusaders");
-        
-        List<Status> statuses = new ArrayList<Status>();
-        statuses.add(Status.Ready);
-        statuses.add(Status.Created);
-        statuses.add(Status.InProgress);
-        statuses.add(Status.Reserved);
-        
-
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
-        taskService.addTask(task, new HashMap<String, Object>());
-
-        long taskId = task.getId();
-        
-        
-        Task task3 = (Task) TaskFactory.evalTask(new StringReader(str2));
-        taskService.addTask(task3, new HashMap<String, Object>());
-        
-        Task task4 = (Task) TaskFactory.evalTask(new StringReader(str3));
-        taskService.addTask(task4, new HashMap<String, Object>());
-        
-        List<TaskSummary> tasksAssignedByGroups = taskService.getTasksAssignedByGroups(groupIds);
-        assertEquals(1, tasksAssignedByGroups.size());
-
-        // A Task with multiple potential owners moves to "Ready" state until someone claims it.
-
-          List<TaskSummary> allTasks = taskService.getTasksAssignedByGroups(groupIds);
-        assertEquals(1, allTasks.size());
-        List<TaskSummary> personalTasks = taskService.getTasksOwnedByStatus("salaboy", statuses, "en-UK");
-        assertEquals(2, personalTasks.size());
-        allTasks.addAll(personalTasks);
-        assertEquals(3, allTasks.size());
-
-        Task task1 = taskService.getTaskById(taskId);
-        assertEquals(Status.Reserved, task1.getTaskData().getStatus());
-        List<TaskSummary> tasksAssignedAsPotentialOwner = taskService.getTasksAssignedAsPotentialOwner("salaboy", "en-UK");
-        assertEquals(3, tasksAssignedAsPotentialOwner.size());
-        
-        taskService.forward(taskId, "salaboy", "Crusaders");
-
-        
-        allTasks = taskService.getTasksAssignedByGroups(groupIds);
-        assertEquals(2, allTasks.size());
-        personalTasks = taskService.getTasksOwnedByStatus("salaboy", statuses, "en-UK");
-        assertEquals(1, personalTasks.size());
-        allTasks.addAll(personalTasks);
-        assertEquals(3, allTasks.size());
-        
-        Task task2 = taskService.getTaskById(taskId);
-        assertEquals(Status.Ready, task2.getTaskData().getStatus());
-        assertNull(task2.getTaskData().getActualOwner());
-        assertEquals(1, task2.getPeopleAssignments().getPotentialOwners().size());
-        List<TaskSummary> tasksAssignedByGroup = taskService.getTasksAssignedByGroup("Crusaders");
-        
-        assertEquals(2, tasksAssignedByGroup.size());
-       
-        
-        tasksAssignedByGroups = taskService.getTasksAssignedByGroups(groupIds);
-        assertEquals(2, tasksAssignedByGroups.size());
-        
-        taskService.claim(taskId, "salaboy");
-        
-        task2 = taskService.getTaskById(taskId);
-        assertEquals(Status.Reserved, task2.getTaskData().getStatus());
-        assertEquals("salaboy", task2.getTaskData().getActualOwner().getId());
-        assertEquals(1, task2.getPeopleAssignments().getPotentialOwners().size());
-        
-        List<TaskSummary> tasksOwned = taskService.getTasksOwned("salaboy", "en-UK");
-        assertEquals(2, tasksOwned.size());
-  
-        allTasks = taskService.getTasksAssignedByGroups(groupIds);
-        assertEquals(1, allTasks.size());
-        personalTasks = taskService.getTasksOwnedByStatus("salaboy", statuses, "en-UK");
-        assertEquals(2, personalTasks.size());
-        allTasks.addAll(personalTasks);
-        assertEquals(3, allTasks.size());
-        
-        
-    }
 
     @Test
     public void testStartFromReadyStateWithPotentialOwner() throws Exception {
@@ -507,7 +404,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -535,7 +432,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name'})";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -572,7 +469,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -605,7 +502,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -643,7 +540,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -675,7 +572,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name =  'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -719,7 +616,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -756,7 +653,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name'})";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -791,7 +688,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -835,7 +732,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name'})";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -870,7 +767,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -903,7 +800,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -944,7 +841,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -985,7 +882,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -1020,6 +917,43 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         assertEquals(Status.Suspended, task3.getTaskData().getPreviousStatus());
         assertEquals("Darth Vader", task3.getTaskData().getActualOwner().getId());
     }
+    
+    @Test
+    public void testResumeFromCompleted() {       
+        String str = "(with (new Task()) { priority = 55, taskData = (with( new TaskData()) { } ), ";
+        str += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('Bobba Fet'), new User('Darth Vader') ],businessAdministrators = [ new User('Administrator') ], }),";
+        str += "name = 'This is my task name' })";
+
+        Task task = TaskFactory.evalTask(new StringReader(str));
+        taskService.addTask(task, new HashMap<String, Object>());
+
+        long taskId = task.getId();
+        taskService.claim(taskId, "Darth Vader");
+
+        Task task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.Reserved, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+
+        taskService.start(taskId, "Darth Vader");
+
+        task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.InProgress, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+
+        taskService.complete(taskId, "Darth Vader", null);
+
+        task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.Completed, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+       
+        assertThatExceptionOfType(PermissionDeniedException.class).isThrownBy(() -> { 
+            taskService.resume(taskId, "Darth Vader"); })
+        .withMessageContaining("was unable to execute operation 'Resume' on task id");                
+
+        task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.Completed, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+    }
 
     @Test
     public void testResumeFromReservedWithIncorrectUser() {
@@ -1031,7 +965,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -1069,7 +1003,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -1092,7 +1026,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -1122,7 +1056,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
         long taskId = task.getId();
 
@@ -1133,11 +1067,9 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
 
 
         Task task2 = taskService.getTaskById(taskId);
-        User user = TaskModelProvider.getFactory().newUser();
-        ((InternalOrganizationalEntity) user).setId("Darth Vader");
+        User user = createUser("Darth Vader");
         assertTrue(task2.getPeopleAssignments().getPotentialOwners().contains(user));
-        user = TaskModelProvider.getFactory().newUser();
-        ((InternalOrganizationalEntity) user).setId("Tony Stark");
+        user = createUser("Tony Stark");
         assertTrue(task2.getPeopleAssignments().getPotentialOwners().contains(user));
         assertEquals("Tony Stark", task2.getTaskData().getActualOwner().getId());
         // this was checking for ready, but it should be reserved.. it was an old bug
@@ -1154,7 +1086,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -1176,11 +1108,9 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
 
 
         Task task2 = taskService.getTaskById(taskId);
-        User user = TaskModelProvider.getFactory().newUser();
-        ((InternalOrganizationalEntity) user).setId("Darth Vader");
+        User user = createUser("Darth Vader");
         assertTrue(task2.getPeopleAssignments().getPotentialOwners().contains(user));
-        user = TaskModelProvider.getFactory().newUser();
-        ((InternalOrganizationalEntity) user).setId("Tony Stark");
+        user = createUser("Tony Stark");
         assertTrue(task2.getPeopleAssignments().getPotentialOwners().contains(user));
         assertEquals("Tony Stark", task2.getTaskData().getActualOwner().getId());
         assertEquals(Status.Reserved, task2.getTaskData().getStatus());
@@ -1196,7 +1126,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
         long taskId = task.getId();
 
@@ -1220,16 +1150,15 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         assertNotNull("Should get permissed denied exception", denied);
 
         Task task2 = taskService.getTaskById(taskId);
-        User user = TaskModelProvider.getFactory().newUser();
-        ((InternalOrganizationalEntity) user).setId("Darth Vader");
+        User user = createUser("Darth Vader");
         assertTrue(task2.getPeopleAssignments().getPotentialOwners().contains(user));
-        user = TaskModelProvider.getFactory().newUser();
-        ((InternalOrganizationalEntity) user).setId("Tony Stark");
+        user = createUser("Tony Stark");
         assertFalse(task2.getPeopleAssignments().getPotentialOwners().contains(user));
         assertEquals("Darth Vader", task2.getTaskData().getActualOwner().getId());
         assertEquals(Status.Reserved, task2.getTaskData().getStatus());
     }
 
+    @Test
     public void testForwardFromReady() throws Exception {
         
 
@@ -1239,7 +1168,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -1248,10 +1177,9 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
 
         taskService.forward(taskId, "Darth Vader", "Tony Stark");
 
-
         Task task2 = taskService.getTaskById(taskId);
-        assertFalse(task2.getPeopleAssignments().getPotentialOwners().contains("Darth Vader"));
-        assertTrue(task2.getPeopleAssignments().getPotentialOwners().contains("Tony Stark"));
+        assertFalse(task2.getPeopleAssignments().getPotentialOwners().contains(createUser("Darth Vader")));
+        assertTrue(task2.getPeopleAssignments().getPotentialOwners().contains(createUser("Tony Stark")));
         assertNull(task2.getTaskData().getActualOwner());
         assertEquals(Status.Ready, task2.getTaskData().getStatus());
     }
@@ -1266,7 +1194,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -1288,11 +1216,9 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
 
 
         Task task2 = taskService.getTaskById(taskId);
-        User user = TaskModelProvider.getFactory().newUser();
-        ((InternalOrganizationalEntity) user).setId("Darth Vader");
+        User user = createUser("Darth Vader");
         assertFalse(task2.getPeopleAssignments().getPotentialOwners().contains(user));
-        user = TaskModelProvider.getFactory().newUser();
-        ((InternalOrganizationalEntity) user).setId("Tony Stark");
+        user = createUser("Tony Stark");
         assertTrue(task2.getPeopleAssignments().getPotentialOwners().contains(user));
         assertNull(task2.getTaskData().getActualOwner());
         assertEquals(Status.Ready, task2.getTaskData().getStatus());
@@ -1308,7 +1234,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name =  'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -1338,14 +1264,36 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
 
 
         Task task2 = taskService.getTaskById(taskId);
-        User user = TaskModelProvider.getFactory().newUser();
-        ((InternalOrganizationalEntity) user).setId("Darth Vader");
+        User user = createUser("Darth Vader");
         assertTrue(task2.getPeopleAssignments().getPotentialOwners().contains(user));
-        user = TaskModelProvider.getFactory().newUser();
-        ((InternalOrganizationalEntity) user).setId("Tony Stark");
+        user = createUser("Tony Stark");
         assertFalse(task2.getPeopleAssignments().getPotentialOwners().contains(user));
         assertEquals("Darth Vader", task2.getTaskData().getActualOwner().getId());
         assertEquals(Status.Reserved, task2.getTaskData().getStatus());
+    }
+    
+    @Test
+    public void testForwardFromReadyToGroup() throws Exception {
+        
+        // One potential owner, should go straight to state Reserved
+        String str = "(with (new Task()) { priority = 55, taskData = (with( new TaskData()) { } ), ";
+        str += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('Darth Vader') ],businessAdministrators = [ new User('Administrator') ], }),";
+        str += "name = 'This is my task name' })";
+
+
+        Task task = TaskFactory.evalTask(new StringReader(str));
+        taskService.addTask(task, new HashMap<String, Object>());
+
+        long taskId = task.getId();
+
+        // Check is Forwarded
+        IllegalArgumentException failed = null;
+        try {
+            taskService.forward(taskId, "Darth Vader", "Knights Templer");
+        } catch (IllegalArgumentException e) {
+            failed = e;
+        }
+        assertNotNull("Should get permissed denied exception", failed);
     }
 
     @Test
@@ -1358,7 +1306,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -1394,7 +1342,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name =  'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -1436,7 +1384,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name =  'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -1455,6 +1403,13 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         params.put("content", "content");
         taskService.complete(taskId, "Darth Vader", params);
 
+        List<Content> allContent = taskService.getAllContentByTaskId(taskId);
+        assertNotNull(allContent);
+        assertEquals(3, allContent.size());
+        // only input(0) and output(1) is present
+        assertNotNull(allContent.get(0));
+        assertNotNull(allContent.get(1));
+        assertNull(allContent.get(2));
 
         Task task2 = taskService.getTaskById(taskId);
         assertEquals(AccessType.Inline, ((InternalTaskData) task2.getTaskData()).getOutputAccessType());
@@ -1467,6 +1422,22 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         Content content = taskService.getContentById(contentId);
         Map<String, Object> unmarshalledObject = (Map<String, Object>) ContentMarshallerHelper.unmarshall(content.getContent(), null);
         assertEquals("content", unmarshalledObject.get("content"));
+        
+        // update content
+        params.put("content", "updated content");
+	    taskService.setOutput(taskId, "Darth Vader", params);
+	    
+	    task = taskService.getTaskById(taskId);
+	    contentId = task.getTaskData().getOutputContentId();
+	    
+	    content = taskService.getContentById(contentId);
+	    String updated = new String(content.getContent());
+	    unmarshalledObject = (Map<String, Object>) ContentMarshallerHelper.unmarshall(content.getContent(), null);
+        assertEquals("updated content", unmarshalledObject.get("content"));
+        
+        taskService.deleteOutput(taskId, "Darth Vader");
+        content = taskService.getContentById(contentId);
+        assertNull(content);
     }
 
     @Test
@@ -1479,7 +1450,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -1522,7 +1493,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name =  'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -1557,7 +1528,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -1601,7 +1572,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name =  'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -1614,18 +1585,20 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         assertEquals(Status.InProgress, task1.getTaskData().getStatus());
         assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
 
-//        FaultData data = new FaultData();
-//        data.setAccessType(AccessType.Inline);
-//        data.setType("type");
-//        data.setFaultName("faultName");
-//        data.setContent("content".getBytes());
         Map<String, Object> faultData = new HashMap<String, Object>();
         faultData.put("faultType", "type");
         faultData.put("faultName", "faultName");
         faultData.put("content", "content");
 
         taskService.fail(taskId, "Darth Vader", faultData);
-
+        
+        List<Content> allContent = taskService.getAllContentByTaskId(taskId);
+        assertNotNull(allContent);
+        assertEquals(3, allContent.size());
+        // only input(0) and fault(2) is present
+        assertNotNull(allContent.get(0));
+        assertNull(allContent.get(1));
+        assertNotNull(allContent.get(2));
 
         Task task2 = taskService.getTaskById(taskId);
         assertEquals(Status.Failed, task2.getTaskData().getStatus());
@@ -1641,6 +1614,27 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         Map<String, Object> unmarshalledContent = (Map<String, Object>) ContentMarshallerHelper.unmarshall(content.getContent(), null);
         assertEquals("content", unmarshalledContent.get("content"));
         xmlRoundTripContent(content);
+        
+        // update fault
+	    FaultData data = TaskModelProvider.getFactory().newFaultData();
+	    data.setAccessType(AccessType.Inline);
+	    data.setType("type");
+	    data.setFaultName("faultName");
+	    data.setContent("updated content".getBytes());
+	    
+	    taskService.setFault(taskId, "Darth Vader", data);
+	    
+	    task = taskService.getTaskById(taskId);
+	    contentId = task.getTaskData().getFaultContentId();
+	    
+	    content = taskService.getContentById(contentId);
+	    String updated = new String(content.getContent());
+	    assertEquals("updated content", updated);
+        
+	    // delete fault
+        taskService.deleteFault(taskId, "Darth Vader");
+        content = taskService.getContentById(contentId);
+        assertNull(content);
     }
 //    
 //    /**
@@ -1698,12 +1692,11 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str), null);
+        Task task = TaskFactory.evalTask(new StringReader(str), null);
         // We need to add the Admin if we don't initialize the task
         if (task.getPeopleAssignments() != null && task.getPeopleAssignments().getBusinessAdministrators() != null) {
             List<OrganizationalEntity> businessAdmins = new ArrayList<OrganizationalEntity>();
-            User user = TaskModelProvider.getFactory().newUser();
-            ((InternalOrganizationalEntity) user).setId("Administrator");
+            User user = createUser("Administrator");
             businessAdmins.add(user);
             businessAdmins.addAll(task.getPeopleAssignments().getBusinessAdministrators());
             ((InternalPeopleAssignments) task.getPeopleAssignments()).setBusinessAdministrators(businessAdmins);
@@ -1738,8 +1731,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
 
 
         Task task1 = taskService.getTaskById(taskId);
-        User user = TaskModelProvider.getFactory().newUser();
-        ((InternalOrganizationalEntity) user).setId("Bobba Fet");
+        User user = createUser("Bobba Fet");
         assertTrue(((InternalPeopleAssignments) task1.getPeopleAssignments()).getRecipients().contains(user));
     }
 
@@ -1758,7 +1750,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += " potentialOwners = [ new User('Darth Vader'), new User('Bobba Fet') ] } ),";
         str += "name =  'This is my task name' })";
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str), null);
+        Task task = TaskFactory.evalTask(new StringReader(str), null);
 
         taskService.addTask(task, new HashMap<String, Object>());
 
@@ -1768,8 +1760,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
 
         try {
             List<OrganizationalEntity> potentialOwners = new ArrayList<OrganizationalEntity>();
-            User user = TaskModelProvider.getFactory().newUser();
-            ((InternalOrganizationalEntity) user).setId("Bobba Fet");
+            User user = createUser("Bobba Fet");
             potentialOwners.add(user);
             taskService.nominate(taskId, "Darth Vader", potentialOwners);
 
@@ -1783,11 +1774,9 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         //shouldn't affect the assignments
 
         Task task1 = taskService.getTaskById(taskId);
-        User user = TaskModelProvider.getFactory().newUser();
-        ((InternalOrganizationalEntity) user).setId("Darth Vader");
+        User user = createUser("Darth Vader");
         assertTrue(task1.getPeopleAssignments().getPotentialOwners().contains(user));
-        user = TaskModelProvider.getFactory().newUser();
-        ((InternalOrganizationalEntity) user).setId("Bobba Fet");
+        user = createUser("Bobba Fet");
         assertTrue(task1.getPeopleAssignments().getPotentialOwners().contains(user));
     }
 
@@ -1800,7 +1789,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -1808,8 +1797,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
 
         try {
             List<OrganizationalEntity> potentialOwners = new ArrayList<OrganizationalEntity>(1);
-            User user = TaskModelProvider.getFactory().newUser();
-            ((InternalOrganizationalEntity) user).setId("Jabba Hutt");
+            User user = createUser("Jabba Hutt");
             potentialOwners.add(user);
             taskService.nominate(taskId, "Darth Vader", potentialOwners);
 
@@ -1823,8 +1811,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         //shouldn't affect the assignments
 
         Task task1 = taskService.getTaskById(taskId);
-        User user = TaskModelProvider.getFactory().newUser();
-        ((InternalOrganizationalEntity) user).setId("Bobba Fet");
+        User user = createUser("Bobba Fet");
         assertTrue(task1.getPeopleAssignments().getBusinessAdministrators().contains(user));
         assertEquals(task1.getTaskData().getStatus(), Status.Created);
     }
@@ -1838,15 +1825,14 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name =  'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
 
 
         List<OrganizationalEntity> potentialOwners = new ArrayList<OrganizationalEntity>(1);
-        User user = TaskModelProvider.getFactory().newUser();
-        ((InternalOrganizationalEntity) user).setId("Jabba Hutt");
+        User user = createUser("Jabba Hutt");
         potentialOwners.add(user);
         taskService.nominate(taskId, "Darth Vader", potentialOwners);
 
@@ -1868,7 +1854,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name'})";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -1899,7 +1885,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name =  'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -1925,7 +1911,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "businessAdministrators = [ new User('Jabba Hutt') ] } ),";
         str += "name =  'This is my task name'})";
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -1953,12 +1939,11 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str), null);
+        Task task = TaskFactory.evalTask(new StringReader(str), null);
         // We need to add the Admin if we don't initialize the task
         if (task.getPeopleAssignments() != null && task.getPeopleAssignments().getBusinessAdministrators() != null) {
             List<OrganizationalEntity> businessAdmins = new ArrayList<OrganizationalEntity>();
-            User user = TaskModelProvider.getFactory().newUser();
-            ((InternalOrganizationalEntity) user).setId("Administrator");
+            User user = createUser("Administrator");
             businessAdmins.add(user);
             businessAdmins.addAll(task.getPeopleAssignments().getBusinessAdministrators());
             ((InternalPeopleAssignments) task.getPeopleAssignments()).setBusinessAdministrators(businessAdmins);
@@ -1990,7 +1975,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name =  'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -2013,7 +1998,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -2036,7 +2021,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name =  'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -2062,7 +2047,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -2088,7 +2073,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name =  'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -2113,7 +2098,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name = 'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -2142,7 +2127,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         // Create a local instance of the TaskService
 
         // Deploy the Task Definition to the Task Component
-        taskService.addTask((Task) TaskFactory.evalTask(new StringReader(str)), new HashMap<String, Object>());
+        taskService.addTask(TaskFactory.evalTask(new StringReader(str)), new HashMap<String, Object>());
 
         // Because the Task contains a direct assignment we can query it for its Potential Owner
         // Notice that we obtain a list of TaskSummary (a lightweight representation of a task)
@@ -2190,7 +2175,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name =  'This is my task name' })";
 
         // Deploy the Task Definition to the Task Component
-        taskService.addTask((Task) TaskFactory.evalTask(new StringReader(str)), new HashMap<String, Object>());
+        taskService.addTask(TaskFactory.evalTask(new StringReader(str)), new HashMap<String, Object>());
 
         // we don't need to query for our task to see what we will claim, just claim the next one available for us
 
@@ -2214,7 +2199,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "name =  'This is my task name' })";
 
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -2265,7 +2250,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('Bobba Fet'), new User('Darth Vader') ],businessAdministrators = [ new User('Administrator') ], }),";
         str += "name = 'This is my task name' })";
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
         taskService.addTask(task, new HashMap<String, Object>());
 
         long taskId = task.getId();
@@ -2274,8 +2259,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         assertNotNull(comments);
         assertEquals(0, comments.size());
         
-        User user = TaskModelProvider.getFactory().newUser();
-        ((InternalOrganizationalEntity) user).setId("Bobba Fet");
+        User user = createUser("Bobba Fet");
         
         Comment comment = TaskModelProvider.getFactory().newComment();
         ((InternalComment)comment).setAddedAt(new Date());
@@ -2330,7 +2314,7 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         str += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('Bobba Fet'), new User('Darth Vader') ],businessAdministrators = [ new User('Administrator') ], }),";
         str += "name = 'This is my task name' })";
 
-        Task task = (Task) TaskFactory.evalTask(new StringReader(str));
+        Task task = TaskFactory.evalTask(new StringReader(str));
 
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < 1000; i++) {
@@ -2358,5 +2342,566 @@ public abstract class LifeCycleBaseTest extends HumanTaskServicesBaseTest {
         assertEquals(1000, resultDescription.getText().length()); // This is text
 
         // 6.1.x no longer uses shortText in API and Taskorm.xml so no assert.
+    }
+    
+    @Test
+    public void testCompleteByActiveTasks() {
+        
+
+        // One potential owner, should go straight to state Reserved
+        String str = "(with (new Task()) { priority = 55, taskData = (with( new TaskData()) { activationTime = new Date(), processInstanceId = 123 } ), ";
+        str += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('Bobba Fet'), new User('Darth Vader') ],businessAdministrators = [ new User('Administrator') ], }),";
+        str += "name = 'This is my task name' })";
+
+        Date beforeCreationTime = new Date(System.currentTimeMillis()-1000);
+ 
+        Task task = TaskFactory.evalTask(new StringReader(str));
+        taskService.addTask(task, new HashMap<String, Object>());
+
+        long taskId = task.getId();
+        assertNotNull(task.getTaskData().getActivationTime());
+        
+        
+        // Go straight from Ready to Inprogress@@@@@@ 2015-08-04 17:13:24.755
+        taskService.start(taskId, "Darth Vader");
+        
+        List<TaskSummary> activeTasks = taskService.getActiveTasks();
+        assertNotNull(activeTasks);
+        assertEquals(1,  activeTasks.size());
+        activeTasks = taskService.getActiveTasks(beforeCreationTime);
+        assertNotNull(activeTasks);
+        assertEquals(1,  activeTasks.size());
+
+
+        Task task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.InProgress, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+
+        // Check is Complete
+
+        taskService.complete(taskId, "Darth Vader", null);
+
+        Task task2 = taskService.getTaskById(taskId);
+        assertEquals(Status.Completed, task2.getTaskData().getStatus());
+        assertEquals("Darth Vader", task2.getTaskData().getActualOwner().getId());
+        
+        List<TaskSummary> completedTasks = taskService.getCompletedTasks();
+        assertNotNull(completedTasks);
+        assertEquals(1,  completedTasks.size());
+        
+        completedTasks = taskService.getCompletedTasks(beforeCreationTime);
+        assertNotNull(completedTasks);
+        assertEquals(1,  completedTasks.size());
+        
+        completedTasks = taskService.getCompletedTasksByProcessId(123l);
+        assertNotNull(completedTasks);
+        assertEquals(1,  completedTasks.size());
+        
+        taskService.archiveTasks(completedTasks);
+        
+        List<TaskSummary> archiveddTasks = taskService.getArchivedTasks();
+        assertNotNull(archiveddTasks);
+        assertEquals(1,  archiveddTasks.size());
+    }
+    
+    @Test
+    public void testCompleteWithContentAndVarInputListener() {
+        testCompleteWithContentAndVarListener(new DefaultTaskEventListener(){
+
+            @Override
+            public void beforeTaskStartedEvent(TaskEvent event) {
+                assertNull(event.getTask().getTaskData().getTaskInputVariables());
+                assertNull(event.getTask().getTaskData().getTaskOutputVariables());
+                
+                event.getTaskContext().loadTaskVariables(event.getTask());
+                
+                assertNotNull(event.getTask().getTaskData().getTaskInputVariables());
+                assertEquals(1, event.getTask().getTaskData().getTaskInputVariables().size());
+                assertTrue(event.getTask().getTaskData().getTaskInputVariables().containsKey("input"));
+                
+                assertNull(event.getTask().getTaskData().getTaskOutputVariables());
+            }
+
+            @Override
+            public void beforeTaskCompletedEvent(TaskEvent event) {
+                assertNotNull(event.getTask().getTaskData().getTaskInputVariables());
+                assertEquals(1, event.getTask().getTaskData().getTaskInputVariables().size());
+                assertTrue(event.getTask().getTaskData().getTaskInputVariables().containsKey("input"));                
+                assertNotNull(event.getTask().getTaskData().getTaskOutputVariables());
+                assertEquals(1, event.getTask().getTaskData().getTaskOutputVariables().size());
+                assertTrue(event.getTask().getTaskData().getTaskOutputVariables().containsKey("content"));
+                
+                event.getTaskContext().loadTaskVariables(event.getTask());
+                
+                assertNotNull(event.getTask().getTaskData().getTaskInputVariables());
+                assertEquals(1, event.getTask().getTaskData().getTaskInputVariables().size());
+                assertTrue(event.getTask().getTaskData().getTaskInputVariables().containsKey("input"));
+                
+                assertNotNull(event.getTask().getTaskData().getTaskOutputVariables());                
+                assertEquals(1, event.getTask().getTaskData().getTaskOutputVariables().size());
+                assertTrue(event.getTask().getTaskData().getTaskOutputVariables().containsKey("content"));
+            }
+
+            @Override
+            public void beforeTaskAddedEvent(TaskEvent event) {
+                assertNotNull(event.getTask().getTaskData().getTaskInputVariables());
+                assertEquals(1, event.getTask().getTaskData().getTaskInputVariables().size());
+                assertTrue(event.getTask().getTaskData().getTaskInputVariables().containsKey("input"));
+                
+                assertNull(event.getTask().getTaskData().getTaskOutputVariables());
+                
+                event.getTaskContext().loadTaskVariables(event.getTask());
+                
+                assertNotNull(event.getTask().getTaskData().getTaskInputVariables());
+                assertEquals(1, event.getTask().getTaskData().getTaskInputVariables().size());
+                assertTrue(event.getTask().getTaskData().getTaskInputVariables().containsKey("input"));
+                
+                assertNull(event.getTask().getTaskData().getTaskOutputVariables());
+            }
+            
+        });
+
+    }
+    
+    @Test
+    public void testCompleteWithContentAndVarOutputListener() {
+        
+        testCompleteWithContentAndVarListener(new DefaultTaskEventListener(){
+
+            @Override
+            public void afterTaskStartedEvent(TaskEvent event) {
+                assertNull(event.getTask().getTaskData().getTaskInputVariables());
+                assertNull(event.getTask().getTaskData().getTaskOutputVariables());
+                
+                event.getTaskContext().loadTaskVariables(event.getTask());
+                
+                assertNotNull(event.getTask().getTaskData().getTaskInputVariables());
+                assertEquals(1, event.getTask().getTaskData().getTaskInputVariables().size());
+                assertTrue(event.getTask().getTaskData().getTaskInputVariables().containsKey("input"));
+                
+                assertNull(event.getTask().getTaskData().getTaskOutputVariables());
+            }
+
+            @Override
+            public void afterTaskCompletedEvent(TaskEvent event) {
+                assertNotNull(event.getTask().getTaskData().getTaskInputVariables());
+                assertEquals(1, event.getTask().getTaskData().getTaskInputVariables().size());
+                assertTrue(event.getTask().getTaskData().getTaskInputVariables().containsKey("input"));             
+                assertNotNull(event.getTask().getTaskData().getTaskOutputVariables());
+                assertEquals(1, event.getTask().getTaskData().getTaskOutputVariables().size());
+                assertTrue(event.getTask().getTaskData().getTaskOutputVariables().containsKey("content"));
+                
+                event.getTaskContext().loadTaskVariables(event.getTask());
+                
+                assertNotNull(event.getTask().getTaskData().getTaskInputVariables());
+                assertEquals(1, event.getTask().getTaskData().getTaskInputVariables().size());
+                assertTrue(event.getTask().getTaskData().getTaskInputVariables().containsKey("input"));
+                
+                assertNotNull(event.getTask().getTaskData().getTaskOutputVariables());                
+                assertEquals(1, event.getTask().getTaskData().getTaskOutputVariables().size());
+                assertTrue(event.getTask().getTaskData().getTaskOutputVariables().containsKey("content"));
+            }
+
+            @Override
+            public void afterTaskAddedEvent(TaskEvent event) {
+                assertNotNull(event.getTask().getTaskData().getTaskInputVariables());
+                assertEquals(1, event.getTask().getTaskData().getTaskInputVariables().size());
+                assertTrue(event.getTask().getTaskData().getTaskInputVariables().containsKey("input"));
+                
+                assertNull(event.getTask().getTaskData().getTaskOutputVariables());
+                
+                event.getTaskContext().loadTaskVariables(event.getTask());
+                
+                assertNotNull(event.getTask().getTaskData().getTaskInputVariables());
+                assertEquals(1, event.getTask().getTaskData().getTaskInputVariables().size());
+                assertTrue(event.getTask().getTaskData().getTaskInputVariables().containsKey("input"));
+                
+                assertNull(event.getTask().getTaskData().getTaskOutputVariables());
+            }
+            
+        });
+
+    }
+    
+    @Test
+    public void testCompleteAlreadyCompleted() {
+       
+        // One potential owner, should go straight to state Reserved
+        String str = "(with (new Task()) { priority = 55, taskData = (with( new TaskData()) { } ), ";
+        str += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('Bobba Fet'), new User('Darth Vader') ],businessAdministrators = [ new User('Administrator') ], }),";
+        str += "name = 'This is my task name' })";
+
+        Task task = TaskFactory.evalTask(new StringReader(str));
+        taskService.addTask(task, new HashMap<String, Object>());
+
+        long taskId = task.getId();
+
+        taskService.start(taskId, "Darth Vader");
+        Task task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.InProgress, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+
+        // Check is Complete
+        taskService.complete(taskId, "Darth Vader", null);
+        Task task2 = taskService.getTaskById(taskId);
+        assertEquals(Status.Completed, task2.getTaskData().getStatus());
+        assertEquals("Darth Vader", task2.getTaskData().getActualOwner().getId());
+        
+        try {
+            taskService.complete(taskId, "Darth Vader", null);
+            Fail.fail("Task should already be completed and thus can't be completed again");
+        } catch (PermissionDeniedException e) {
+            // expected
+        }
+    }
+
+    @Test
+    public void testCompleteWithMergeOfResultsEmptyAtCompletion() {
+        final Map<String, Object> outputsAfterCompletion = new HashMap<String, Object>(); 
+        // One potential owner, should go straight to state Reserved
+        String str = "(with (new Task()) { priority = 55, taskData = (with( new TaskData()) { } ), ";
+        str += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('Bobba Fet'), new User('Darth Vader') ], businessAdministrators = [ new User('Administrator') ],}),";
+        str += "name = 'This is my task name' })";
+        
+        ((EventService<TaskLifeCycleEventListener>)taskService).registerTaskEventListener(new DefaultTaskEventListener(){
+
+            @Override
+            public void afterTaskCompletedEvent(TaskEvent event) {
+                outputsAfterCompletion.putAll(event.getTask().getTaskData().getTaskOutputVariables());
+            }
+            
+        });
+
+        Task task = TaskFactory.evalTask(new StringReader(str));
+        taskService.addTask(task, new HashMap<String, Object>());
+
+        long taskId = task.getId();
+        taskService.start(taskId, "Darth Vader");
+
+        Task task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.InProgress, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+        
+        Map<String, Object> params = new HashMap<String, Object>();
+        params.put("response", "not sure");
+        taskService.addContent(taskId, params);
+
+        task1 = taskService.getTaskById(taskId);
+        Map<String, Object> outputs = getTaskOutput(task1);
+        assertEquals(1, outputs.size());
+        assertEquals("not sure", outputs.get("response"));
+
+        params.clear();        
+        taskService.complete(taskId, "Darth Vader", params);
+
+        task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.Completed, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+
+        outputs = getTaskOutput(task1);
+        assertEquals(1, outputs.size());
+        assertEquals("not sure", outputs.get("response"));
+        
+        // now let's check what was actually given to listeners
+        assertEquals(1, outputsAfterCompletion.size());
+        assertEquals("not sure", outputsAfterCompletion.get("response"));
+    }
+    
+    @Test
+    public void testCompleteWithMergeOfResultsOverrideAtCompletion() {
+        final Map<String, Object> outputsAfterCompletion = new HashMap<String, Object>(); 
+        // One potential owner, should go straight to state Reserved
+        String str = "(with (new Task()) { priority = 55, taskData = (with( new TaskData()) { } ), ";
+        str += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('Bobba Fet'), new User('Darth Vader') ], businessAdministrators = [ new User('Administrator') ],}),";
+        str += "name = 'This is my task name' })";
+        
+        ((EventService<TaskLifeCycleEventListener>)taskService).registerTaskEventListener(new DefaultTaskEventListener(){
+
+            @Override
+            public void afterTaskCompletedEvent(TaskEvent event) {
+                outputsAfterCompletion.putAll(event.getTask().getTaskData().getTaskOutputVariables());
+            }
+            
+        });
+
+        Task task = TaskFactory.evalTask(new StringReader(str));
+        taskService.addTask(task, new HashMap<String, Object>());
+
+        long taskId = task.getId();
+        taskService.start(taskId, "Darth Vader");
+
+        Task task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.InProgress, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+        
+        Map<String, Object> params = new HashMap<String, Object>();
+        params.put("response", "not sure");
+        taskService.addContent(taskId, params);
+
+        task1 = taskService.getTaskById(taskId);
+        Map<String, Object> outputs = getTaskOutput(task1);
+        assertEquals(1, outputs.size());
+        assertEquals("not sure", outputs.get("response"));
+
+        params.clear(); 
+        params.put("response", "let's do it");
+        taskService.complete(taskId, "Darth Vader", params);
+
+        task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.Completed, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+
+        outputs = getTaskOutput(task1);
+        assertEquals(1, outputs.size());
+        assertEquals("let's do it", outputs.get("response"));
+        
+        // now let's check what was actually given to listeners
+        assertEquals(1, outputsAfterCompletion.size());
+        assertEquals("let's do it", outputsAfterCompletion.get("response"));
+    }
+    
+    @Test
+    public void testCompleteWithMergeOfResultsOverrideAndAddAtCompletion() {
+        final Map<String, Object> outputsAfterCompletion = new HashMap<String, Object>(); 
+        // One potential owner, should go straight to state Reserved
+        String str = "(with (new Task()) { priority = 55, taskData = (with( new TaskData()) { } ), ";
+        str += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('Bobba Fet'), new User('Darth Vader') ], businessAdministrators = [ new User('Administrator') ],}),";
+        str += "name = 'This is my task name' })";
+        
+        ((EventService<TaskLifeCycleEventListener>)taskService).registerTaskEventListener(new DefaultTaskEventListener(){
+
+            @Override
+            public void afterTaskCompletedEvent(TaskEvent event) {
+                outputsAfterCompletion.putAll(event.getTask().getTaskData().getTaskOutputVariables());
+            }
+            
+        });
+
+        Task task = TaskFactory.evalTask(new StringReader(str));
+        taskService.addTask(task, new HashMap<String, Object>());
+
+        long taskId = task.getId();
+        taskService.start(taskId, "Darth Vader");
+
+        Task task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.InProgress, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+        
+        Map<String, Object> params = new HashMap<String, Object>();
+        params.put("response", "not sure");
+        taskService.addContent(taskId, params);
+
+        task1 = taskService.getTaskById(taskId);
+        Map<String, Object> outputs = getTaskOutput(task1);
+        assertEquals(1, outputs.size());
+        assertEquals("not sure", outputs.get("response"));
+
+        params.clear(); 
+        params.put("response", "let's do it");
+        params.put("feedback", "ok");
+        taskService.complete(taskId, "Darth Vader", params);
+
+        task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.Completed, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+
+        outputs = getTaskOutput(task1);
+        assertEquals(2, outputs.size());
+        assertEquals("let's do it", outputs.get("response"));
+        assertEquals("ok", outputs.get("feedback"));
+        
+        // now let's check what was actually given to listeners
+        assertEquals(2, outputsAfterCompletion.size());
+        assertEquals("let's do it", outputsAfterCompletion.get("response"));
+        assertEquals("ok", outputsAfterCompletion.get("feedback"));
+    }
+    
+    @Test
+    public void testCompleteWithMergeOfResultsNoDataBeforeCompletion() {
+        final Map<String, Object> outputsAfterCompletion = new HashMap<String, Object>(); 
+        // One potential owner, should go straight to state Reserved
+        String str = "(with (new Task()) { priority = 55, taskData = (with( new TaskData()) { } ), ";
+        str += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('Bobba Fet'), new User('Darth Vader') ], businessAdministrators = [ new User('Administrator') ],}),";
+        str += "name = 'This is my task name' })";
+        
+        ((EventService<TaskLifeCycleEventListener>)taskService).registerTaskEventListener(new DefaultTaskEventListener(){
+
+            @Override
+            public void afterTaskCompletedEvent(TaskEvent event) {
+                outputsAfterCompletion.putAll(event.getTask().getTaskData().getTaskOutputVariables());
+            }
+            
+        });
+
+        Task task = TaskFactory.evalTask(new StringReader(str));
+        taskService.addTask(task, new HashMap<String, Object>());
+
+        long taskId = task.getId();
+        taskService.start(taskId, "Darth Vader");
+
+        Task task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.InProgress, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+        
+   
+        task1 = taskService.getTaskById(taskId);
+        Map<String, Object> outputs = getTaskOutput(task1);
+        assertEquals(0, outputs.size());   
+
+        Map<String, Object> params = new HashMap<String, Object>();            
+        params.put("response", "let's do it");
+        params.put("feedback", "ok");
+        taskService.complete(taskId, "Darth Vader", params);
+
+        task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.Completed, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+
+        outputs = getTaskOutput(task1);
+        assertEquals(2, outputs.size());
+        assertEquals("let's do it", outputs.get("response"));
+        assertEquals("ok", outputs.get("feedback"));
+        
+        // now let's check what was actually given to listeners
+        assertEquals(2, outputsAfterCompletion.size());
+        assertEquals("let's do it", outputsAfterCompletion.get("response"));
+        assertEquals("ok", outputsAfterCompletion.get("feedback"));
+    }
+    
+    @Test
+    public void testCompleteWithMergeOfResults() {
+        final Map<String, Object> outputsAfterCompletion = new HashMap<String, Object>(); 
+        // One potential owner, should go straight to state Reserved
+        String str = "(with (new Task()) { priority = 55, taskData = (with( new TaskData()) { } ), ";
+        str += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('Bobba Fet'), new User('Darth Vader') ], businessAdministrators = [ new User('Administrator') ],}),";
+        str += "name = 'This is my task name' })";
+        
+        ((EventService<TaskLifeCycleEventListener>)taskService).registerTaskEventListener(new DefaultTaskEventListener(){
+
+            @Override
+            public void afterTaskCompletedEvent(TaskEvent event) {
+                Map<String, Object> outs = event.getTask().getTaskData().getTaskOutputVariables();
+                if (outs != null) {
+                    outputsAfterCompletion.putAll(outs);
+                }
+            }
+            
+        });
+
+        Task task = TaskFactory.evalTask(new StringReader(str));
+        taskService.addTask(task, new HashMap<String, Object>());
+
+        long taskId = task.getId();
+        taskService.start(taskId, "Darth Vader");
+
+        Task task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.InProgress, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+        
+   
+        task1 = taskService.getTaskById(taskId);
+        Map<String, Object> outputs = getTaskOutput(task1);
+        assertEquals(0, outputs.size());   
+
+        taskService.complete(taskId, "Darth Vader", null);
+
+        task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.Completed, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+
+        outputs = getTaskOutput(task1);
+        assertEquals(0, outputs.size());
+        
+        // now let's check what was actually given to listeners
+        assertEquals(0, outputsAfterCompletion.size());        
+    }
+    
+    @Test
+    public void testDelegateFromReservedWithNotExistingTargetUser() throws Exception {
+        
+        // One potential owner, should go straight to state Reserved
+        String str = "(with (new Task()) { priority = 55, taskData = (with( new TaskData()) { } ), ";
+        str += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('Bobba Fet'), new User('Darth Vader') ],businessAdministrators = [ new User('Administrator') ], }),";
+        str += "name = 'This is my task name' })";
+
+
+        Task task = TaskFactory.evalTask(new StringReader(str));
+        taskService.addTask(task, new HashMap<String, Object>());
+        long taskId = task.getId();
+
+        // Claim and Reserved
+
+        taskService.claim(taskId, "Darth Vader");
+
+        Task task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.Reserved, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+
+        // Check was not delegated
+        IllegalArgumentException failed = null;
+        try {
+            taskService.delegate(taskId, "Darth Vader", "not existing");
+        } catch (IllegalArgumentException e) {
+            failed = e;
+        }
+        assertNotNull("Should get permissed denied exception", failed);
+
+        Task task2 = taskService.getTaskById(taskId);
+        User user = createUser("Darth Vader");
+        assertTrue(task2.getPeopleAssignments().getPotentialOwners().contains(user));
+        user = createUser("Tony Stark");
+        assertFalse(task2.getPeopleAssignments().getPotentialOwners().contains(user));
+        assertEquals("Darth Vader", task2.getTaskData().getActualOwner().getId());
+        assertEquals(Status.Reserved, task2.getTaskData().getStatus());
+    }
+    
+    protected void testCompleteWithContentAndVarListener(TaskLifeCycleEventListener listener) {
+        
+
+        // One potential owner, should go straight to state Reserved
+        String str = "(with (new Task()) { priority = 55, taskData = (with( new TaskData()) { } ), ";
+        str += "peopleAssignments = (with ( new PeopleAssignments() ) { potentialOwners = [new User('Bobba Fet'), new User('Darth Vader') ],businessAdministrators = [ new User('Administrator') ], }),";
+        str += "name =  'This is my task name' })";
+
+        ((EventService<TaskLifeCycleEventListener>)taskService).registerTaskEventListener(listener);
+        
+        Map<String, Object> params = new HashMap<String, Object>();
+        params.put("input", "simple input");
+        Task task = TaskFactory.evalTask(new StringReader(str));
+        taskService.addTask(task, params);
+        long taskId = task.getId();
+        
+        // start task
+        taskService.start(taskId, "Darth Vader");
+        Task task1 = taskService.getTaskById(taskId);
+        assertEquals(Status.InProgress, task1.getTaskData().getStatus());
+        assertEquals("Darth Vader", task1.getTaskData().getActualOwner().getId());
+
+        // complete task with output
+        params = new HashMap<String, Object>();
+        params.put("content", "content");
+        taskService.complete(taskId, "Darth Vader", params);
+    }
+    
+    private User createUser(String id) {
+        return TaskModelProvider.getFactory().newUser(id);
+    }
+    
+    private Group createGroup(String id) {
+        return TaskModelProvider.getFactory().newGroup(id);
+    }
+    
+    protected Map<String, Object> getTaskOutput(Task task) {
+        long documentContentId = task.getTaskData().getOutputContentId();
+        if (documentContentId > 0) {
+            Content contentById = taskService.getContentById(documentContentId);
+            if (contentById == null) {
+                return new HashMap<String, Object>();
+            }            
+            
+            Object unmarshall = ContentMarshallerHelper.unmarshall(contentById.getContent(), null);
+            return (Map<String, Object>) unmarshall;
+        }
+        return new HashMap<String, Object>();
     }
 }

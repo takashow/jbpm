@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,58 +16,54 @@
 
 package org.jbpm.kie.services.impl;
 
-import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.List;
 
-import javax.xml.bind.annotation.XmlAttribute;
-import javax.xml.bind.annotation.XmlElement;
-
-import org.jbpm.process.audit.command.AuditCommand;
 import org.kie.api.command.Command;
+import org.kie.api.task.UserGroupCallback;
 import org.kie.internal.command.ProcessInstanceIdCommand;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.kie.internal.identity.IdentityProvider;
+
 
 public class CommonUtils {
 	
-	private static final Logger logger = LoggerFactory.getLogger(CommonUtils.class);
-
-	// TODO: https://issues.jboss.org/browse/JBPM-4296
+	/**
+	 * Returns the process instance id field in a command, if available
+	 * </p>
+	 * See the CommonUtils.testProcessInstanceIdCommands test in this module 
+	 * 
+	 * @param command The {@link Command} instance
+	 * @return the process instance id, if it's available in this command
+	 */
 	public static Long getProcessInstanceId(Command<?> command) {
-		if (command instanceof ProcessInstanceIdCommand<?>) {
-			return ((ProcessInstanceIdCommand<?>) command).getProcessInstanceId();
-		} else if( command instanceof AuditCommand<?> ) { 
-            return null;
-        }
-        try {
-            Field[] fields = command.getClass().getDeclaredFields();
-
-            for (Field field : fields) {
-                field.setAccessible(true);
-                if (field.isAnnotationPresent(XmlAttribute.class)) {
-                    String attributeName = field.getAnnotation(XmlAttribute.class).name();
-
-                    if ("process-instance-id".equalsIgnoreCase(attributeName)) {
-                        return (Long) field.get(command);
-                    } else if ("processInstanceId".equals(field.getName())) {
-                    	return (Long) field.get(command);
-                    }
-                } else if (field.isAnnotationPresent(XmlElement.class)) {
-                    String elementName = field.getAnnotation(XmlElement.class).name();
-
-                    if ("process-instance-id".equalsIgnoreCase(elementName)) {
-                        return (Long) field.get(command);
-                    } else if ("processInstanceId".equals(field.getName())) {
-                    	return (Long) field.get(command);
-                    }
-                } else if ("processInstanceId".equals(field.getName())) {
-                	return (Long) field.get(command);
-                }
-            }
-        } catch (Exception e) {
-            logger.debug("Unable to find process instance id on command {} due to {}", command, e.getMessage());
-        }
+		if (command instanceof ProcessInstanceIdCommand) {
+			return ((ProcessInstanceIdCommand) command).getProcessInstanceId();
+		} 
 
         return null;
 		
+	}
+	
+	// to compensate https://hibernate.atlassian.net/browse/HHH-8091 add empty element to the roles in case it's empty
+	public static List<String> getAuthenticatedUserRoles(IdentityProvider identityProvider) {
+        List<String> roles = identityProvider != null ? identityProvider.getRoles() : new ArrayList<>();
+        
+        if (roles == null || roles.isEmpty()) {
+            roles = new ArrayList<>();
+            roles.add("");
+        }
+        
+        return roles;
+    }
+
+	// to compensate https://hibernate.atlassian.net/browse/HHH-8091 add empty element to the roles in case it's empty
+    public static List<String> getCallbackUserRoles(UserGroupCallback userGroupCallback, String userId) {
+		List<String> roles = userGroupCallback != null ? userGroupCallback.getGroupsForUser(userId) : new ArrayList<>();
+		if (roles == null || roles.isEmpty()) {
+			roles = new ArrayList<>();
+			roles.add("");
+		}
+
+		return roles;
 	}
 }

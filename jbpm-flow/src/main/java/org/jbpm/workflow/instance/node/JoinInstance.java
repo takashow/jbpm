@@ -1,11 +1,11 @@
-/**
- * Copyright 2005 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -39,7 +39,6 @@ import org.kie.api.runtime.process.NodeInstanceContainer;
 /**
  * Runtime counterpart of a join node.
  * 
- * @author <a href="mailto:kris_verlaenen@hotmail.com">Kris Verlaenen</a>
  */
 public class JoinInstance extends NodeInstanceImpl {
 
@@ -197,7 +196,10 @@ public class JoinInstance extends NodeInstanceImpl {
 
 
     private boolean checkNodes(Set<Long> vistedNodes, Node startAt, Node currentNode, Node lookFor) {
-    	
+    	if (currentNode == null) {
+    	    // for dynamic/ad hoc task there is no node 
+    	    return false;
+    	}
         List<Connection> connections = currentNode.getOutgoingConnections(org.jbpm.workflow.core.Node.CONNECTION_DEFAULT_TYPE);
         // special handling for XOR split as it usually is used for arbitrary loops
         if (currentNode instanceof Split && ((Split) currentNode).getType() == Split.TYPE_XOR) {

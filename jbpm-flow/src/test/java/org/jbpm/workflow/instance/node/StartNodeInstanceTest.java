@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,6 +24,7 @@ import static org.junit.Assert.assertSame;
 import java.util.List;
 
 import org.drools.core.common.InternalKnowledgeRuntime;
+import org.drools.core.impl.KnowledgeBaseFactory;
 import org.jbpm.process.instance.ProcessInstance;
 import org.jbpm.ruleflow.core.RuleFlowProcess;
 import org.jbpm.ruleflow.instance.RuleFlowProcessInstance;
@@ -32,10 +33,9 @@ import org.jbpm.workflow.core.impl.ConnectionImpl;
 import org.jbpm.workflow.core.node.StartNode;
 import org.jbpm.workflow.instance.impl.NodeInstanceFactoryRegistry;
 import org.junit.Test;
+import org.kie.api.KieBase;
+import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.process.NodeInstance;
-import org.kie.internal.KnowledgeBase;
-import org.kie.internal.KnowledgeBaseFactory;
-import org.kie.internal.runtime.StatefulKnowledgeSession;
 import org.slf4j.LoggerFactory;
 
 public class StartNodeInstanceTest extends AbstractBaseTest {
@@ -47,8 +47,8 @@ public class StartNodeInstanceTest extends AbstractBaseTest {
     @Test
     public void testStartNode() {
         
-        KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
-        StatefulKnowledgeSession ksession = kbase.newStatefulKnowledgeSession();        
+        KieBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
+        KieSession ksession = kbase.newKieSession();        
         
         MockNode mockNode = new MockNode();
         MockNodeInstanceFactory mockNodeFactory = new MockNodeInstanceFactory( new MockNodeInstance( mockNode ) );

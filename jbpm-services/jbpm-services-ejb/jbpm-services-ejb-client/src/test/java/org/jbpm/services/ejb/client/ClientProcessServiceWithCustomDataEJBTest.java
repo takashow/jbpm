@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,10 +15,6 @@
  */
 
 package org.jbpm.services.ejb.client;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.kie.scanner.MavenRepository.getMavenRepository;
 
 import java.io.File;
 import java.lang.reflect.Constructor;
@@ -31,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.jbpm.kie.services.impl.KModuleDeploymentUnit;
-import org.jbpm.kie.test.util.AbstractBaseTest;
+import org.jbpm.kie.test.util.AbstractKieServicesBaseTest;
 import org.jbpm.services.api.model.DeploymentUnit;
 import org.jbpm.services.api.model.ProcessInstanceDesc;
 import org.jbpm.services.ejb.api.DefinitionServiceEJBRemote;
@@ -48,9 +44,13 @@ import org.kie.api.KieServices;
 import org.kie.api.builder.ReleaseId;
 import org.kie.api.task.model.TaskSummary;
 import org.kie.internal.query.QueryFilter;
-import org.kie.scanner.MavenRepository;
+import org.kie.scanner.KieMavenRepository;
 
-public class ClientProcessServiceWithCustomDataEJBTest extends AbstractBaseTest {
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.kie.scanner.KieMavenRepository.getKieMavenRepository;
+
+public class ClientProcessServiceWithCustomDataEJBTest extends AbstractKieServicesBaseTest {
 	
 	private static final String application = "sample-war-ejb-app";
 	
@@ -73,8 +73,8 @@ public class ClientProcessServiceWithCustomDataEJBTest extends AbstractBaseTest 
         ReleaseId releaseId = ks.newReleaseId(GROUP_ID, ARTIFACT_ID, VERSION);
         File kjar = new File("src/test/resources/kjar/custom-data-project-1.0.jar");
         File pom = new File("src/test/resources/kjar/pom.xml");
-        MavenRepository repository = getMavenRepository();
-        repository.deployArtifact(releaseId, kjar, pom);
+		KieMavenRepository repository = getKieMavenRepository();
+        repository.installArtifact(releaseId, kjar, pom);
         
         URL[] urls = new URL[]{kjar.toURI().toURL()};
         customClassLoader = new URLClassLoader(urls, this.getClass().getClassLoader());

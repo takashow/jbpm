@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -37,6 +37,7 @@ import org.jbpm.services.task.rule.RuleContextProvider;
 import org.jbpm.services.task.rule.TaskRuleService;
 import org.jbpm.services.task.rule.impl.RuleContextProviderImpl;
 import org.jbpm.services.task.utils.ContentMarshallerHelper;
+import org.jbpm.test.util.PoolingDataSource;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -52,8 +53,6 @@ import org.kie.internal.builder.KnowledgeBuilderFactory;
 import org.kie.internal.io.ResourceFactory;
 import org.kie.internal.task.api.InternalTaskService;
 import org.kie.internal.task.api.model.ContentData;
-
-import bitronix.tm.resource.jdbc.PoolingDataSource;
 
 
 public class LifeCycleLocalWithRuleServiceTest extends HumanTaskServicesBaseTest {
@@ -76,7 +75,7 @@ public class LifeCycleLocalWithRuleServiceTest extends HumanTaskServicesBaseTest
             KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
             kbuilder.add(addTask, ResourceType.DRL);
             
-            ruleContextProvider.addKieBase(TaskRuleService.ADD_TASK_SCOPE, kbuilder.newKnowledgeBase());
+            ruleContextProvider.addKieBase(TaskRuleService.ADD_TASK_SCOPE, kbuilder.newKieBase());
         } catch (Exception e) {
             
         }
@@ -85,7 +84,7 @@ public class LifeCycleLocalWithRuleServiceTest extends HumanTaskServicesBaseTest
             KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
             kbuilder.add(completeTask, ResourceType.DRL);
             
-            ruleContextProvider.addKieBase(TaskRuleService.COMPLETE_TASK_SCOPE, kbuilder.newKnowledgeBase());
+            ruleContextProvider.addKieBase(TaskRuleService.COMPLETE_TASK_SCOPE, kbuilder.newKieBase());
         } catch (Exception e) {
             
         }
@@ -228,7 +227,7 @@ public class LifeCycleLocalWithRuleServiceTest extends HumanTaskServicesBaseTest
         Map<String, Object> params = new HashMap<String, Object>();
         params.put("manager", "John");
         
-        ContentData data = ContentMarshallerHelper.marshal(params, null);
+        ContentData data = ContentMarshallerHelper.marshal(task, params, null);
         try {
             taskService.addTask(task, data);
             

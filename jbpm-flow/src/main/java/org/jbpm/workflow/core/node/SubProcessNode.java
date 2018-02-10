@@ -1,11 +1,11 @@
-/**
- * Copyright 2005 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +18,7 @@ package org.jbpm.workflow.core.node;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.LinkedList;
 import java.util.List;
@@ -33,7 +34,6 @@ import org.jbpm.process.core.impl.ContextContainerImpl;
 /**
  * Default implementation of a sub-flow node.
  * 
- * @author <a href="mailto:kris_verlaenen@hotmail.com">Kris Verlaenen</a>
  */
 public class SubProcessNode extends StateBasedNode implements Mappable, ContextContainer {
 
@@ -49,7 +49,7 @@ public class SubProcessNode extends StateBasedNode implements Mappable, ContextC
     private List<DataAssociation> inMapping = new LinkedList<DataAssociation>();
     private List<DataAssociation> outMapping = new LinkedList<DataAssociation>();
 
-    private boolean independent = true;
+    private boolean independent = true;    
 
     public void setProcessId(final String processId) {
         this.processId = processId;
@@ -133,6 +133,19 @@ public class SubProcessNode extends StateBasedNode implements Mappable, ContextC
     	return out;
     }
     
+    public void adjustOutMapping(String forEachOutVariable) {
+        if (forEachOutVariable == null) {
+            return;
+        }
+        Iterator<DataAssociation> it = outMapping.iterator();
+        while (it.hasNext()) {
+            DataAssociation association = it.next();
+            if (forEachOutVariable.equals(association.getTarget())) {
+                it.remove();
+            }
+        }
+    }
+    
     public void addOutAssociation(DataAssociation dataAssociation) {
         outMapping.add(dataAssociation);
     }
@@ -214,4 +227,14 @@ public class SubProcessNode extends StateBasedNode implements Mappable, ContextC
         }
         return super.getContext(contextId);
     }
+
+    public boolean isAbortParent() {
+        
+        String abortParent = (String) getMetaData("customAbortParent");
+        if (abortParent == null) {
+            return true;
+        }
+        return Boolean.parseBoolean(abortParent);
+    }
+
 }

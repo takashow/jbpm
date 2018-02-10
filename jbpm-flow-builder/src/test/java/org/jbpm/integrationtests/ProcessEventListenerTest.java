@@ -1,4 +1,20 @@
 /*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
  * 
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,8 +31,6 @@
  */
 
 package org.jbpm.integrationtests;
-
-import static org.junit.Assert.assertEquals;
 
 import java.io.Reader;
 import java.io.StringReader;
@@ -40,6 +54,8 @@ import org.kie.api.runtime.process.ProcessInstance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.junit.Assert.assertEquals;
+
 public class ProcessEventListenerTest extends AbstractBaseTest {
     
     private static final Logger logger = LoggerFactory.getLogger(ProcessEventListenerTest.class);
@@ -48,7 +64,7 @@ public class ProcessEventListenerTest extends AbstractBaseTest {
 	public void testInternalNodeSignalEvent() {
         Reader source = new StringReader(process);
         builder.addRuleFlow(source);
-        KieSession session = createKieSession(builder.getPackage());
+        KieSession session = createKieSession(builder.getPackages());
 
         final List<ProcessEvent> processEventList = new ArrayList<ProcessEvent>();
 
@@ -124,7 +140,7 @@ public class ProcessEventListenerTest extends AbstractBaseTest {
             "  <header>\n" +
             "    <variables>\n" +
             "      <variable name=\"MyVar\" >\n" +
-            "        <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "        <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "        <value>SomeText</value>\n" +
             "      </variable>\n" +
             "    </variables>\n" +

@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,7 @@
 package org.jbpm.services.task.wih;
 
 import java.util.Date;
+import java.util.List;
 
 import org.jbpm.services.task.exception.PermissionDeniedException;
 import org.jbpm.services.task.utils.OnErrorAction;
@@ -24,6 +25,8 @@ import org.kie.api.runtime.process.WorkItem;
 import org.kie.api.runtime.process.WorkItemManager;
 import org.kie.api.task.TaskLifeCycleEventListener;
 import org.kie.api.task.TaskService;
+import org.kie.api.task.model.Group;
+import org.kie.api.task.model.OrganizationalEntity;
 import org.kie.api.task.model.Task;
 import org.kie.internal.task.api.EventService;
 import org.kie.internal.task.api.InternalTaskService;
@@ -97,7 +100,7 @@ public class NonManagedLocalHTWorkItemHandler extends AbstractHTWorkItemHandler 
         ContentData content = createTaskContentBasedOnWorkItemParams(ksession, workItem);
         try {
             long taskId = ((InternalTaskService) taskService).addTask(task, content);
-            if (isAutoClaim(workItem, task)) {
+            if (isAutoClaim(ksession, workItem, task)) {
                 taskService.claim(taskId, (String) workItem.getParameter("SwimlaneActorId"));
             }
         } catch (Exception e) {
@@ -123,7 +126,21 @@ public class NonManagedLocalHTWorkItemHandler extends AbstractHTWorkItemHandler 
         Task task = taskService.getTaskByWorkItemId(workItem.getId());
         if (task != null) {
             try {
-                taskService.exit(task.getId(), "Administrator");
+                String adminUser = ADMIN_USER;
+                
+                List<OrganizationalEntity> businessAdmins = task.getPeopleAssignments().getBusinessAdministrators();
+                for (OrganizationalEntity admin : businessAdmins) {
+                    if (admin instanceof Group) {
+                        continue;
+                    }
+                    
+                    if (!admin.getId().equals(ADMIN_USER)) {
+                        adminUser = admin.getId();
+                        break;
+                    }
+                }
+                logger.debug("Task {} is going to be exited by {} who is business admin", task.getId(), adminUser);
+                taskService.exit(task.getId(), adminUser);
             } catch (PermissionDeniedException e) {
                 logger.info(e.getMessage());
             }

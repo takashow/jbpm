@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss Inc
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,17 +25,13 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Lob;
-import javax.persistence.NamedQueries;
-import javax.persistence.NamedQuery;
 import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 
-@NamedQueries(value={
-		@NamedQuery(name="getDeploymentUnit", query="select d from DeploymentStoreEntry d where d.deploymentId=:deploymentId"),
-		@NamedQuery(name="getDeploymentUnitsByDate", query="select d from DeploymentStoreEntry d where d.updateDate >= :ludate"),
-		@NamedQuery(name="getDeploymentUnitsByState", query="select d from DeploymentStoreEntry d where d.state=:state")
-})
+/*
+ * Named queries defined in services orm file
+ */
 @Entity
 @Table(name="DeploymentStore", uniqueConstraints={@UniqueConstraint(columnNames="DEPLOYMENT_ID")})
 @SequenceGenerator(name="deploymentStoreIdSeq", sequenceName="DEPLOY_STORE_ID_SEQ", allocationSize=1)

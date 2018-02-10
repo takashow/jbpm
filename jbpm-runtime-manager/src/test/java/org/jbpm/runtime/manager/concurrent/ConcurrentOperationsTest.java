@@ -1,24 +1,32 @@
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jbpm.runtime.manager.concurrent;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-
-import javax.naming.InitialContext;
-import javax.transaction.UserTransaction;
-
 import org.jbpm.runtime.manager.impl.DefaultRegisterableItemsFactory;
+import org.jbpm.runtime.manager.impl.RuntimeEngineImpl;
 import org.jbpm.runtime.manager.util.TestUtil;
 import org.jbpm.services.task.identity.JBossUserGroupCallbackImpl;
+import org.jbpm.test.listener.NodeLeftCountDownProcessEventListener;
 import org.jbpm.test.util.AbstractBaseTest;
+import org.jbpm.test.util.PoolingDataSource;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.kie.api.event.process.ProcessEventListener;
 import org.kie.api.io.ResourceType;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.manager.RuntimeEngine;
@@ -36,13 +44,21 @@ import org.kie.internal.io.ResourceFactory;
 import org.kie.internal.runtime.manager.context.EmptyContext;
 import org.kie.internal.task.api.UserGroupCallback;
 
-import bitronix.tm.resource.jdbc.PoolingDataSource;
+import javax.naming.InitialContext;
+import javax.transaction.UserTransaction;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+
+import static org.junit.Assert.*;
 
 public class ConcurrentOperationsTest extends AbstractBaseTest {
     
     private PoolingDataSource pds;
     private UserGroupCallback userGroupCallback;  
     private RuntimeManager manager;
+    
     @Before
     public void setup() {
         TestUtil.cleanupSingletonSessionId();
@@ -63,9 +79,9 @@ public class ConcurrentOperationsTest extends AbstractBaseTest {
 
   
     
-    @Test
+    @Test(timeout=10000)
     public void testExecuteProcessWithAsyncHandler() throws Exception {
-    	
+    	final NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("Log", 1);
         RuntimeEnvironment environment = RuntimeEnvironmentBuilder.Factory.get()
     			.newDefaultBuilder()
                 .userGroupCallback(userGroupCallback)
@@ -75,9 +91,17 @@ public class ConcurrentOperationsTest extends AbstractBaseTest {
 					@Override
 					public Map<String, WorkItemHandler> getWorkItemHandlers(RuntimeEngine runtime) {
 						Map<String, WorkItemHandler> handlers = super.getWorkItemHandlers(runtime);
-						handlers.put("Log", new AsyncWorkItemHandler(runtime.getKieSession()));
+						handlers.put("Log", new AsyncWorkItemHandler(((RuntimeEngineImpl)runtime).getManager()));
 						return handlers;
 					}
+
+                    @Override
+                    public List<ProcessEventListener> getProcessEventListeners(RuntimeEngine runtime) {
+
+                        List<ProcessEventListener> listeners = super.getProcessEventListeners(runtime);
+                        listeners.add(countDownListener);
+                        return listeners;
+                    }
                 	
                 })
                 .addAsset(ResourceFactory.newClassPathResource("BPMN2-CustomTask.bpmn2"), ResourceType.BPMN2)
@@ -90,20 +114,20 @@ public class ConcurrentOperationsTest extends AbstractBaseTest {
         KieSession ksession = runtime.getKieSession();
         assertNotNull(ksession);       
         
-        int sessionId = ksession.getId();
+        long sessionId = ksession.getIdentifier();
         assertTrue(sessionId == 1);
         
         runtime = manager.getRuntimeEngine(EmptyContext.get());
         ksession = runtime.getKieSession();        
-        assertEquals(sessionId, ksession.getId());
+        assertEquals(sessionId, ksession.getIdentifier());
         
         UserTransaction ut = InitialContext.doLookup("java:comp/UserTransaction");
         ut.begin();
         ProcessInstance processInstance = ksession.startProcess("customtask");
-        System.out.println("Started process, committing...");
+        logger.debug("Started process, committing...");
         ut.commit();
         
-        Thread.sleep(2000);
+        countDownListener.waitTillCompleted();
         
         processInstance = ksession.getProcessInstance(processInstance.getId());
         assertNull(processInstance);
@@ -115,9 +139,9 @@ public class ConcurrentOperationsTest extends AbstractBaseTest {
         manager.close();
     }
     
-    @Test
+    @Test(timeout=10000)
     public void testExecuteHumanTaskWithAsyncHandler() throws Exception {
-    	
+        final NodeLeftCountDownProcessEventListener countDownListener = new NodeLeftCountDownProcessEventListener("Log", 1);
         RuntimeEnvironment environment = RuntimeEnvironmentBuilder.Factory.get()
     			.newDefaultBuilder()
                 .userGroupCallback(userGroupCallback) 
@@ -127,10 +151,17 @@ public class ConcurrentOperationsTest extends AbstractBaseTest {
 					@Override
 					public Map<String, WorkItemHandler> getWorkItemHandlers(RuntimeEngine runtime) {
 						Map<String, WorkItemHandler> handlers = super.getWorkItemHandlers(runtime);
-						handlers.put("Log", new AsyncWorkItemHandler(runtime.getKieSession()));
+						handlers.put("Log", new AsyncWorkItemHandler(((RuntimeEngineImpl)runtime).getManager()));
 						return handlers;
 					}
                 	
+					@Override
+                    public List<ProcessEventListener> getProcessEventListeners(RuntimeEngine runtime) {
+
+                        List<ProcessEventListener> listeners = super.getProcessEventListeners(runtime);
+                        listeners.add(countDownListener);
+                        return listeners;
+                    }
                 })
                 .addAsset(ResourceFactory.newClassPathResource("BPMN2-CustomAndHumanTask.bpmn2"), ResourceType.BPMN2)
                 .get();
@@ -142,16 +173,16 @@ public class ConcurrentOperationsTest extends AbstractBaseTest {
         KieSession ksession = runtime.getKieSession();
         assertNotNull(ksession);       
         
-        int sessionId = ksession.getId();
+        long sessionId = ksession.getIdentifier();
         assertTrue(sessionId == 1);
         
         runtime = manager.getRuntimeEngine(EmptyContext.get());
         ksession = runtime.getKieSession();        
-        assertEquals(sessionId, ksession.getId());
+        assertEquals(sessionId, ksession.getIdentifier());
         
         
         ProcessInstance processInstance = ksession.startProcess("customandhumantask");
-        System.out.println("Started process, committing...");
+        logger.debug("Started process, committing...");
         
         TaskService taskService = runtime.getTaskService();
         
@@ -164,9 +195,10 @@ public class ConcurrentOperationsTest extends AbstractBaseTest {
         UserTransaction ut = InitialContext.doLookup("java:comp/UserTransaction");
         ut.begin();        
         taskService.complete(taskId, "john", null);
-        System.out.println("Task completed, committing...");
+        logger.debug("Task completed, committing...");
         ut.commit();
-        Thread.sleep(2000);
+        ksession.fireAllRules();
+        countDownListener.waitTillCompleted();
         
         processInstance = ksession.getProcessInstance(processInstance.getId());
         assertNull(processInstance);
@@ -178,12 +210,12 @@ public class ConcurrentOperationsTest extends AbstractBaseTest {
         manager.close();
     }
     
-    private static class AsyncWorkItemHandler implements WorkItemHandler {
+    private class AsyncWorkItemHandler implements WorkItemHandler {
     	
-    	private KieSession ksession;
+    	private RuntimeManager runtimeManager;
     	
-    	AsyncWorkItemHandler(KieSession ksession) {
-    		this.ksession = ksession;
+    	AsyncWorkItemHandler(RuntimeManager runtimeManager) {
+    		this.runtimeManager = runtimeManager;
     	}
 
 		@Override
@@ -193,15 +225,20 @@ public class ConcurrentOperationsTest extends AbstractBaseTest {
 
 				@Override
 				public void run() {
-					System.out.println("staring a thread....");
-					ksession.insert("doing it async");
+				    
 					try {
-						Thread.sleep(1000);
-					} catch (InterruptedException e) {
-						
+					    Thread.sleep(1000);
+					    
+    					RuntimeEngine engine = runtimeManager.getRuntimeEngine(EmptyContext.get());// only for singleton
+                        logger.debug("staring a thread....");
+                        engine.getKieSession().insert("doing it async");
+    					logger.debug("Completing the work item");
+    					
+    					engine.getKieSession().getWorkItemManager().completeWorkItem(workItem.getId(), null);
+    					runtimeManager.disposeRuntimeEngine(engine);
+					} catch (Exception e) {
+					    logger.error("Error when executing async operation", e);
 					}
-					System.out.println("Completing the work item");
-					ksession.getWorkItemManager().completeWorkItem(workItem.getId(), null);
 				}
 				
 			}.start();

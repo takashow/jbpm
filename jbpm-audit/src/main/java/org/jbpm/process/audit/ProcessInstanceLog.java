@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -71,7 +71,12 @@ public class ProcessInstanceLog implements Serializable, AuditEvent, org.kie.api
     private String processVersion;
     
     private String processName;
-   
+    
+    private String correlationKey;
+    
+    @Column(nullable=true)
+    private Integer processType;
+      
     /**
      * Dependening on the {@link AuditEventBuilder} implementation, 
      * this can be<ul>
@@ -312,6 +317,22 @@ public class ProcessInstanceLog implements Serializable, AuditEvent, org.kie.api
 
     public void setProcessInstanceDescription(String processInstanceDescription) {
         this.processInstanceDescription = processInstanceDescription;
+    }
+
+	public String getCorrelationKey() {
+		return correlationKey;
+	}
+
+	public void setCorrelationKey(String correlationKey) {
+		this.correlationKey = correlationKey;
+	}
+
+    public Integer getProcessType() {
+        return processType;
+    }
+    
+    public void setProcessType(Integer processType) {
+        this.processType = processType;
     }
 
 }

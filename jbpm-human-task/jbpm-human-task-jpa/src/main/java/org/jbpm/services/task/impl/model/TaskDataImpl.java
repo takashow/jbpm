@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 import javax.persistence.CascadeType;
 import javax.persistence.Embeddable;
@@ -32,6 +33,7 @@ import javax.persistence.Enumerated;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
+import javax.persistence.OrderBy;
 import javax.persistence.Temporal;
 
 import org.jbpm.services.task.utils.CollectionUtils;
@@ -39,6 +41,7 @@ import org.kie.api.task.model.Attachment;
 import org.kie.api.task.model.Comment;
 import org.kie.api.task.model.Status;
 import org.kie.api.task.model.User;
+import org.kie.api.task.model.Group;
 import org.kie.internal.task.api.model.AccessType;
 import org.kie.internal.task.api.model.ContentData;
 import org.kie.internal.task.api.model.FaultData;
@@ -98,15 +101,42 @@ public class TaskDataImpl implements InternalTaskData {
     
     private String deploymentId;
     
-    private int processSessionId;
+    private long processSessionId;
 
     @OneToMany(cascade = CascadeType.ALL, targetEntity=CommentImpl.class)
     @JoinColumn(name = "TaskData_Comments_Id", nullable = true)
+    @OrderBy("id ASC")
     private List<Comment> comments = Collections.emptyList();
 
     @OneToMany(cascade = CascadeType.ALL, targetEntity=AttachmentImpl.class)
     @JoinColumn(name = "TaskData_Attachments_Id", nullable = true)
+    @OrderBy("id ASC")
     private List<Attachment> attachments = Collections.emptyList();
+   
+
+    // transient task variables for improved access
+    private transient Map<String, Object> taskInputVariables;
+    private transient Map<String, Object> taskOutputVariables;
+    
+    @Override
+    public Map<String, Object> getTaskInputVariables() {
+        return taskInputVariables;
+    }
+
+    @Override
+    public void setTaskInputVariables(Map<String, Object> taskInputVariables) {
+        this.taskInputVariables = taskInputVariables;
+    }
+
+    @Override
+    public Map<String, Object> getTaskOutputVariables() {
+        return taskOutputVariables;
+    }
+
+    @Override
+    public void setTaskOutputVariables(Map<String, Object> taskOutputVariables) {
+        this.taskOutputVariables = taskOutputVariables;
+    }
 
     public void writeExternal(ObjectOutput out) throws IOException {
         if (status != null) {
@@ -260,7 +290,7 @@ public class TaskDataImpl implements InternalTaskData {
         
         if (processSessionId != -1) {
             out.writeBoolean(true);
-            out.writeInt(processSessionId);
+            out.writeLong(processSessionId);
         } else {
             out.writeBoolean(false);
         }
@@ -362,7 +392,7 @@ public class TaskDataImpl implements InternalTaskData {
         }
         
         if (in.readBoolean()) {
-            processSessionId = in.readInt();
+            processSessionId = in.readLong();
         }
         
         comments = CollectionUtils.readCommentList(in);
@@ -483,11 +513,11 @@ public class TaskDataImpl implements InternalTaskData {
 		this.processId = processId;
 	}
 	
-	public int getProcessSessionId() {
+	public long getProcessSessionId() {
 		return processSessionId;
 	}
 
-	public void setProcessSessionId(int processSessionId) {
+	public void setProcessSessionId(long processSessionId) {
 		this.processSessionId = processSessionId;
 	}
 
@@ -557,7 +587,7 @@ public class TaskDataImpl implements InternalTaskData {
         this.outputType = outputType;
     }
 
-    public long getOutputContentId() {
+    public Long getOutputContentId() {
         return outputContentId;
     }
 
@@ -806,7 +836,7 @@ public class TaskDataImpl implements InternalTaskData {
         }
     }
 
-    static GroupImpl convertToGroupImpl(GroupImpl group) { 
+    static GroupImpl convertToGroupImpl(Group group) { 
         if( group == null ) { 
             return null;
         }

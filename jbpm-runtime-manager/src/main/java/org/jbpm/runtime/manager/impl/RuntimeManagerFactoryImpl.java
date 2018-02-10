@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 JBoss Inc
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -56,7 +56,7 @@ public class RuntimeManagerFactoryImpl implements RuntimeManagerFactory {
     }
     @Override
     public RuntimeManager newSingletonRuntimeManager(RuntimeEnvironment environment, String identifier) {
-        SessionFactory factory = getSessionFactory(environment);
+        SessionFactory factory = getSessionFactory(environment, identifier);
         TaskServiceFactory taskServiceFactory = getTaskServiceFactory(environment);
         
         RuntimeManager manager = new SingletonRuntimeManager(environment, factory, taskServiceFactory, identifier);
@@ -73,7 +73,7 @@ public class RuntimeManagerFactoryImpl implements RuntimeManagerFactory {
     }
     
     public RuntimeManager newPerRequestRuntimeManager(RuntimeEnvironment environment, String identifier) {
-        SessionFactory factory = getSessionFactory(environment);
+        SessionFactory factory = getSessionFactory(environment, identifier);
         TaskServiceFactory taskServiceFactory = getTaskServiceFactory(environment);
 
         RuntimeManager manager = new PerRequestRuntimeManager(environment, factory, taskServiceFactory, identifier);
@@ -89,7 +89,7 @@ public class RuntimeManagerFactoryImpl implements RuntimeManagerFactory {
     }
     
     public RuntimeManager newPerProcessInstanceRuntimeManager(RuntimeEnvironment environment, String identifier) {
-        SessionFactory factory = getSessionFactory(environment);
+        SessionFactory factory = getSessionFactory(environment, identifier);
         TaskServiceFactory taskServiceFactory = getTaskServiceFactory(environment);
 
         RuntimeManager manager = new PerProcessInstanceRuntimeManager(environment, factory, taskServiceFactory, identifier);
@@ -98,12 +98,28 @@ public class RuntimeManagerFactoryImpl implements RuntimeManagerFactory {
         return manager;
     }
     
-    protected SessionFactory getSessionFactory(RuntimeEnvironment environment) {
+    @Override
+    public RuntimeManager newPerCaseRuntimeManager(RuntimeEnvironment environment) {
+
+        return newPerCaseRuntimeManager(environment, "default-per-case");
+    }
+    
+    public RuntimeManager newPerCaseRuntimeManager(RuntimeEnvironment environment, String identifier) {
+        SessionFactory factory = getSessionFactory(environment, identifier);
+        TaskServiceFactory taskServiceFactory = getTaskServiceFactory(environment);
+
+        RuntimeManager manager = new PerCaseRuntimeManager(environment, factory, taskServiceFactory, identifier);
+        initTimerService(environment, manager);
+        ((AbstractRuntimeManager) manager).init();
+        return manager;
+    }
+    
+    protected SessionFactory getSessionFactory(RuntimeEnvironment environment, String owner) {
         SessionFactory factory = null;
         if (environment.usePersistence()) {
-            factory = new JPASessionFactory(environment);
+            factory = new JPASessionFactory(environment, owner);
         } else {
-            factory = new InMemorySessionFactory(environment);
+            factory = new InMemorySessionFactory(environment, owner);
         }
         
         return factory;

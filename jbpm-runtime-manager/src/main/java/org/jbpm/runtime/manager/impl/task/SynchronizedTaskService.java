@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 JBoss Inc
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,12 +15,8 @@
  */
 package org.jbpm.runtime.manager.impl.task;
 
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-
 import org.drools.core.command.impl.CommandBasedStatefulKnowledgeSession;
-import org.drools.persistence.SingleSessionCommandService;
+import org.drools.persistence.PersistableRunner;
 import org.kie.api.command.Command;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.task.TaskLifeCycleEventListener;
@@ -44,23 +40,30 @@ import org.kie.internal.task.api.model.FaultData;
 import org.kie.internal.task.api.model.SubTasksStrategy;
 import org.kie.internal.task.api.model.TaskDef;
 import org.kie.internal.task.api.model.TaskEvent;
-import org.kie.internal.task.query.TaskQueryBuilder;
+import org.kie.internal.task.query.TaskSummaryQueryBuilder;
+
+import java.lang.reflect.InvocationHandler;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 /**
  * Fully synchronized <code>TaskService</code> implementation used by the <code>SingletonRuntimeManager</code>.
- * Synchronization is done on <code>CommandService</code> of the <code>KieSession</code> to ensure correctness 
+ * Synchronization is done on <code>CommandService</code> of the <code>KieSession</code> to ensure correctness
  * until transaction completion.
  *
+ * TODO: use the java {@link InvocationHandler}/proxy mechanism to make this class *much* shorter..
  */
-public class SynchronizedTaskService 
+// TODO: use the Ink
+public class SynchronizedTaskService
             implements InternalTaskService, EventService<TaskLifeCycleEventListener> {
-	
-	
+
+
 	private Object ksession;
 	private InternalTaskService taskService;
-	
+
 	public SynchronizedTaskService(KieSession ksession, InternalTaskService taskService) {
 	    if (ksession instanceof CommandBasedStatefulKnowledgeSession) {
-	        this.ksession = (SingleSessionCommandService) ((CommandBasedStatefulKnowledgeSession) ksession).getCommandService();
+	        this.ksession = ((CommandBasedStatefulKnowledgeSession) ksession).getRunner();
 	    } else {
 	        this.ksession = ksession;
 	    }
@@ -100,20 +103,6 @@ public class SynchronizedTaskService
     public void claim(long taskId, String userId) {
         synchronized (ksession) {
             taskService.claim(taskId, userId);
-        }
-    }
-
-    @Override
-    public void claim(long taskId, String userId, List<String> groupIds) {
-        synchronized (ksession) {
-            taskService.claim(taskId, userId, groupIds);
-        }
-    }
-
-    @Override
-    public void claimNextAvailable(String userId, List<String> groupIds) {
-        synchronized (ksession) {
-            taskService.claimNextAvailable(userId, groupIds);
         }
     }
 
@@ -310,11 +299,9 @@ public class SynchronizedTaskService
     }
 
     @Override
-    public List<TaskSummary> getTasksAssignedAsPotentialOwner(String userId,
-            List<String> groupIds,  int firstResult,
-            int maxResults) {
+    public List<TaskSummary> getTasksAssignedAsPotentialOwner(String userId, List<String> groupIds, String language, int firstResult, int maxResults) {
         synchronized (ksession) {
-           return  taskService.getTasksAssignedAsPotentialOwner(userId, groupIds, firstResult, maxResults);
+           return  taskService.getTasksAssignedAsPotentialOwner(userId, groupIds, language, firstResult, maxResults);
         }
     }
 
@@ -328,9 +315,9 @@ public class SynchronizedTaskService
 
     @Override
     public List<TaskSummary> getTasksAssignedAsPotentialOwnerByStatus(
-            String salaboy, List<Status> status, String language) {
+            String userId, List<Status> status, String language) {
         synchronized (ksession) {
-            return  taskService.getTasksAssignedAsPotentialOwnerByStatus(salaboy, status, language);
+            return  taskService.getTasksAssignedAsPotentialOwnerByStatus(userId, status, language);
         }
     }
 
@@ -425,6 +412,13 @@ public class SynchronizedTaskService
     }
 
     @Override
+    public List<TaskSummary> getTasksAssignedAsPotentialOwnerByProcessId( String userId, String processId ) {
+        synchronized (ksession) {
+            return  taskService.getTasksAssignedAsPotentialOwnerByProcessId(userId, processId);
+        }
+    }
+
+    @Override
     public User getUserById(String userId) {
         synchronized (ksession) {
             return  taskService.getUserById(userId);
@@ -469,7 +463,7 @@ public class SynchronizedTaskService
     @Override
     public void removeGroup(String groupId) {
         synchronized (ksession) {
-            taskService.removeGroup(groupId);            
+            taskService.removeGroup(groupId);
         }
     }
 
@@ -526,7 +520,7 @@ public class SynchronizedTaskService
     public void skip(long taskId, String userId) {
         synchronized (ksession) {
             taskService.skip(taskId, userId);
-        } 
+        }
     }
 
     @Override
@@ -553,7 +547,7 @@ public class SynchronizedTaskService
     @Override
     public void undeployTaskDef(String id) {
         synchronized (ksession) {
-            taskService.undeployTaskDef(id);            
+            taskService.undeployTaskDef(id);
         }
     }
 
@@ -778,9 +772,16 @@ public class SynchronizedTaskService
     }
 
     @Override
-    public long addComment(long taskId, Comment comment) {
+    public Long addComment(long taskId, Comment comment) {
         synchronized (ksession) {
             return  taskService.addComment(taskId, comment);
+        }
+    }
+
+    @Override
+    public Long addComment( long taskId, String addedByUserId, String commentText ) {
+        synchronized (ksession) {
+            return  taskService.addComment(taskId, addedByUserId, commentText);
         }
     }
 
@@ -850,26 +851,26 @@ public class SynchronizedTaskService
 			return taskService.execute(command);
 		}
 	}
-    
+
     @Override
     public List<TaskSummary> getTasksAssignedAsPotentialOwnerByExpirationDate(String userId, List<Status> statuses, Date expirationDate) {
        synchronized (ksession) {
             return  taskService.getTasksAssignedAsPotentialOwnerByExpirationDate(userId, statuses, expirationDate);
-       } 
+       }
     }
 
     @Override
     public List<TaskSummary> getTasksAssignedAsPotentialOwnerByExpirationDateOptional(String userId, List<Status> statuses, Date expirationDate) {
        synchronized (ksession) {
             return  taskService.getTasksAssignedAsPotentialOwnerByExpirationDateOptional(userId, statuses, expirationDate);
-       } 
+       }
     }
 
     @Override
     public Map<Long, List<OrganizationalEntity>> getPotentialOwnersForTaskIds(List<Long> taskIds) {
        synchronized (ksession) {
             return  taskService.getPotentialOwnersForTaskIds(taskIds);
-       } 
+       }
     }
 
 
@@ -879,14 +880,14 @@ public class SynchronizedTaskService
            if (taskService != null) {
                taskService.addMarshallerContext(ownerId, context);
            }
-       }   
+       }
     }
 
 
     @Override
     public void removeMarshallerContext(String ownerId) {
        synchronized (ksession) {
-           if (taskService != null) { 
+           if (taskService != null) {
                taskService.removeMarshallerContext(ownerId);
            }
        }
@@ -899,37 +900,10 @@ public class SynchronizedTaskService
             if (taskService != null) {
                 return taskService.getMarshallerContext(task);
             }
-            
+
             return null;
         }
     }
-
-
-	@Override
-	public List<TaskSummary> getTasksByVariousFields(String userId, List<Long> workItemIds,
-			List<Long> taskIds, List<Long> procInstIds, List<String> busAdmins,
-			List<String> potOwners, List<String> taskOwners,
-			List<Status> status,  boolean union) {
-		synchronized (ksession) {
-            if (taskService != null) {
-                return taskService.getTasksByVariousFields(userId, workItemIds, taskIds, procInstIds,
-                		busAdmins, potOwners, taskOwners, status, union);
-            }
-            return null;
-        }
-	}
-
-
-	@Override
-	public List<TaskSummary> getTasksByVariousFields(String userId, Map<String, List<?>> parameters, boolean union) {
-		synchronized (ksession) {
-            if (taskService != null) {
-                return taskService.getTasksByVariousFields(userId, parameters, union);
-            }
-            
-            return null;
-        }
-	}
 
 	@Override
 	public List<TaskSummary> getTasksOwned(String userId, List<Status> status, QueryFilter filter) {
@@ -941,9 +915,53 @@ public class SynchronizedTaskService
 	    return taskService.getTasksAssignedAsPotentialOwner(userId, groupIds, status, filter);
 	}
 
-	@Override
-	public TaskQueryBuilder taskQuery(String userId) {
-	    return taskService.taskQuery(userId);
-	}
+    @Override
+    public TaskSummaryQueryBuilder taskSummaryQuery( String userId ) {
+        return taskService.taskSummaryQuery(userId);
+    }
+
+    @Override
+    public List<TaskSummary> getTasksAssignedAsBusinessAdministratorByStatus( String userId, String language, List<Status> statuses ) {
+        synchronized( ksession ) {
+            return taskService.getTasksAssignedAsBusinessAdministratorByStatus(userId, language, statuses);
+        }
+    }
+
+    @Override
+    public void executeReminderForTask( long taskId, String initiator ) {
+        synchronized( ksession ) {
+            taskService.executeReminderForTask(taskId, initiator);
+        }
+
+    }
+
+    @Override
+    public long setDocumentContentFromUser( long taskId, String userId, byte[] byteContent ) {
+        synchronized( ksession ) {
+            return taskService.setDocumentContentFromUser(taskId, userId, byteContent);
+        }
+    }
+
+    @Override
+    public long addOutputContentFromUser( long taskId, String userId, Map<String, Object> params ) {
+        synchronized( ksession ) {
+            return taskService.addOutputContentFromUser(taskId, userId, params);
+        }
+    }
+
+    @Override
+    public Content getContentByIdForUser( long contentId, String userId ) {
+        synchronized( ksession ) {
+            return taskService.getContentByIdForUser(contentId, userId);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getOutputContentMapForUser( long taskId, String userId ) {
+        synchronized( ksession ) {
+            return taskService.getOutputContentMapForUser(taskId, userId);
+        }
+    }
+
 
 }

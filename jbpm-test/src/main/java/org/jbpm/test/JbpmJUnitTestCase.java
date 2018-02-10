@@ -1,6 +1,23 @@
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jbpm.test;
 
 import static org.jbpm.test.JBPMHelper.txStateName;
+import static org.junit.Assert.*;
 
 import java.io.File;
 import java.io.FilenameFilter;
@@ -31,6 +48,7 @@ import org.jbpm.process.instance.impl.DefaultProcessInstanceManagerFactory;
 import org.jbpm.services.task.HumanTaskServiceFactory;
 import org.jbpm.services.task.identity.JBossUserGroupCallbackImpl;
 import org.jbpm.services.task.identity.MvelUserGroupCallbackImpl;
+import org.jbpm.test.util.PoolingDataSource;
 import org.jbpm.workflow.instance.impl.WorkflowProcessInstanceImpl;
 import org.junit.After;
 import org.junit.Before;
@@ -51,7 +69,6 @@ import org.kie.api.runtime.process.WorkItemHandler;
 import org.kie.api.runtime.process.WorkItemManager;
 import org.kie.api.runtime.process.WorkflowProcessInstance;
 import org.kie.api.task.TaskService;
-import org.kie.internal.KnowledgeBase;
 import org.kie.internal.builder.KnowledgeBuilder;
 import org.kie.internal.builder.KnowledgeBuilderFactory;
 import org.kie.internal.io.ResourceFactory;
@@ -60,9 +77,6 @@ import org.kie.internal.runtime.manager.context.EmptyContext;
 import org.kie.internal.task.api.InternalTaskService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import bitronix.tm.TransactionManagerServices;
-import bitronix.tm.resource.jdbc.PoolingDataSource;
 
 /**
  * This test case is deprecated. JbpmJUnitBaseTestCase shall be used instead.
@@ -107,9 +121,7 @@ public abstract class JbpmJUnitTestCase extends AbstractBaseTest {
     public static PoolingDataSource setupPoolingDataSource() {
         PoolingDataSource pds = new PoolingDataSource();
         pds.setUniqueName("jdbc/jbpm-ds");
-        pds.setClassName("bitronix.tm.resource.jdbc.lrc.LrcXADataSource");
-        pds.setMaxPoolSize(5);
-        pds.setAllowLocalTransactions(true);
+        pds.setClassName("org.h2.jdbcx.JdbcDataSource");
         pds.getDriverProperties().put("user", "sa");
         pds.getDriverProperties().put("password", "");
         pds.getDriverProperties().put("url", "jdbc:h2:tcp://localhost/~/jbpm-db;MVCC=true");
@@ -153,7 +165,7 @@ public abstract class JbpmJUnitTestCase extends AbstractBaseTest {
             DeleteDbFiles.execute("~", "jbpm-db", true);
 
             // Clean up possible transactions
-            Transaction tx = TransactionManagerServices.getTransactionManager().getCurrentTransaction();
+            Transaction tx = com.arjuna.ats.jta.TransactionManager.transactionManager().getTransaction();
             if (tx != null) {
                 int testTxState = tx.getStatus();
                 if (testTxState != Status.STATUS_NO_TRANSACTION
@@ -204,15 +216,15 @@ public abstract class JbpmJUnitTestCase extends AbstractBaseTest {
         return environment.getKieBase();
     }
 
-    protected KnowledgeBase createKnowledgeBaseGuvnor(String... packages) throws Exception {
+    protected KieBase createKnowledgeBaseGuvnor(String... packages) throws Exception {
         return createKnowledgeBaseGuvnor(false, "http://localhost:8080/drools-guvnor", "admin", "admin", packages);
     }
 
-    protected KnowledgeBase createKnowledgeBaseGuvnorAssets(String pkg, String... assets) throws Exception {
+    protected KieBase createKnowledgeBaseGuvnorAssets(String pkg, String... assets) throws Exception {
         return createKnowledgeBaseGuvnor(false, "http://localhost:8080/drools-guvnor", "admin", "admin", pkg, assets);
     }
 
-    protected KnowledgeBase createKnowledgeBaseGuvnor(boolean dynamic, String url, String username,
+    protected KieBase createKnowledgeBaseGuvnor(boolean dynamic, String url, String username,
             String password, String pkg, String... assets) throws Exception {
         KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
         String changeSet =
@@ -230,10 +242,10 @@ public abstract class JbpmJUnitTestCase extends AbstractBaseTest {
                 "    </add>" + EOL
                 + "</change-set>";
         kbuilder.add(ResourceFactory.newByteArrayResource(changeSet.getBytes()), ResourceType.CHANGE_SET);
-        return kbuilder.newKnowledgeBase();
+        return kbuilder.newKieBase();
     }
 
-    protected KnowledgeBase createKnowledgeBaseGuvnor(boolean dynamic, String url, String username,
+    protected KieBase createKnowledgeBaseGuvnor(boolean dynamic, String url, String username,
             String password, String... packages) throws Exception {
         KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
         String changeSet =
@@ -248,7 +260,7 @@ public abstract class JbpmJUnitTestCase extends AbstractBaseTest {
                 "    </add>" + EOL
                 + "</change-set>";
         kbuilder.add(ResourceFactory.newByteArrayResource(changeSet.getBytes()), ResourceType.CHANGE_SET);
-        return kbuilder.newKnowledgeBase();
+        return kbuilder.newKieBase();
     }
 
     protected KieSession createKnowledgeSession() {

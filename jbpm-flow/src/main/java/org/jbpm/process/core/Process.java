@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +18,7 @@ package org.jbpm.process.core;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public interface Process extends org.kie.api.definition.process.Process, ContextContainer {
 
@@ -61,14 +62,14 @@ public interface Process extends org.kie.api.definition.process.Process, Context
      * 
      * @return	the imports of this RuleFlow process
      */
-    List<String> getImports();
+    Set<String> getImports();
     
     /**
      * Sets the imports of this RuleFlow process
      * 
      * @param imports	the imports as a List of fully qualified class names
      */
-    void setImports(List<String> imports);
+    void setImports(Set<String> imports);
     
     /**
      * Returns the function imports of this RuleFlow process.

@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,17 +16,14 @@
 
 package org.jbpm.process;
 
-import static org.jbpm.process.test.NodeCreator.connect;
-import static org.junit.Assert.assertEquals;
-
 import java.util.ArrayList;
 import java.util.List;
 
-import org.drools.core.process.core.Work;
-import org.drools.core.process.core.datatype.impl.type.ObjectDataType;
-import org.drools.core.process.core.impl.WorkImpl;
+import org.jbpm.process.core.Work;
 import org.jbpm.process.core.context.variable.Variable;
+import org.jbpm.process.core.datatype.impl.type.ObjectDataType;
 import org.jbpm.process.core.event.EventTypeFilter;
+import org.jbpm.process.core.impl.WorkImpl;
 import org.jbpm.process.instance.impl.Action;
 import org.jbpm.process.test.NodeCreator;
 import org.jbpm.process.test.TestProcessEventListener;
@@ -47,6 +44,9 @@ import org.kie.api.runtime.process.ProcessContext;
 import org.kie.api.runtime.process.ProcessInstance;
 import org.slf4j.LoggerFactory;
 
+import static org.jbpm.process.test.NodeCreator.connect;
+import static org.junit.Assert.assertEquals;
+
 public class EventSubProcessTest extends AbstractBaseTest  {
     
     public void addLogger() { 
@@ -57,37 +57,37 @@ public class EventSubProcessTest extends AbstractBaseTest  {
             "bps",
             "bnt-0", "bnl-0",
             "bnt-1",
-            "bnt-1:0", "bnl-1:0",
-            "bnt-1:1",
-            "bnt-1:1:0", "bnl-1:1:0",
-            "bnt-1:1:1", "ant-1:1:1",
-            "anl-1:1:0", "ant-1:1:0",
-            "ant-1:1",
-            "anl-1:0", "ant-1:0",
+            "bnt-1:3", "bnl-1:3",
+            "bnt-1:4",
+            "bnt-1:4:5", "bnl-1:4:5",
+            "bnt-1:4:6", "ant-1:4:6",
+            "anl-1:4:5", "ant-1:4:5",
+            "ant-1:4",
+            "anl-1:3", "ant-1:3",
             "ant-1",
             "anl-0", "ant-0",
             "aps",
-            "bnl-1:1:2:0",
-            "bnt-1:1:2:1", "bnl-1:1:2:1",
-            "bnt-1:1:2:2", "bnl-1:1:2:2",
-            "bnl-1:1:2", "anl-1:1:2",
-            "anl-1:1:2:2", "ant-1:1:2:2",
-            "anl-1:1:2:1", "ant-1:1:2:1",
-            "anl-1:1:2:0",
-            "bnl-1:1:1",
-            "bnt-1:1:3", "bnl-1:1:3",
-            "bnl-1:1",
-            "bnt-1:2", "bnl-1:2",
+            "bnl-1:4:7:8",
+            "bnt-1:4:7:9", "bnl-1:4:7:9",
+            "bnt-1:4:7:10","bnl-1:4:7:10",
+            "bnl-1:4:7",   "anl-1:4:7",
+            "anl-1:4:7:10","ant-1:4:7:10",
+            "anl-1:4:7:9", "ant-1:4:7:9",
+            "anl-1:4:7:8",
+            "bnl-1:4:6",
+            "bnt-1:4:11", "bnl-1:4:11",
+            "bnl-1:4",
+            "bnt-1:12", "bnl-1:12",
             "bnl-1",
-            "bnt-2", "bnl-2",
+            "bnt-12", "bnl-12",
             "bpc",
             "apc",
-            "anl-2", "ant-2",
+            "anl-12", "ant-12",
             "anl-1",
-            "anl-1:2", "ant-1:2",
-            "anl-1:1",
-            "anl-1:1:3", "ant-1:1:3",
-            "anl-1:1:1"
+            "anl-1:12", "ant-1:12",
+            "anl-1:4",
+            "anl-1:4:11", "ant-1:4:11",
+            "anl-1:4:6"
     };
     
 	@Test

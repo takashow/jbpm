@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,7 +18,8 @@ package org.jbpm.kie.services.impl.security;
 
 import java.util.List;
 
-import org.jbpm.kie.services.api.IdentityProvider;
+import org.jbpm.process.core.async.AsyncExecutionMarker;
+import org.kie.internal.identity.IdentityProvider;
 import org.kie.internal.runtime.manager.SecurityManager;
 
 public class IdentityRolesSecurityManager implements SecurityManager {
@@ -52,6 +53,11 @@ public class IdentityRolesSecurityManager implements SecurityManager {
 				}
 			}
 		}
+		// bypass security check if it's an async execution and not role information is available
+		if (AsyncExecutionMarker.isAsync()) {
+            // all granted if roles are not defined
+            return;
+        }
 		throw new SecurityException("User " + identityProvider.getName() + " does not have permission to access this asset");
 		
 	}

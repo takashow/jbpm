@@ -5,13 +5,21 @@
   <parent>
     <groupId>org.jbpm</groupId>
     <artifactId>jbpm-services</artifactId>
-    <version>6.3.0-SNAPSHOT</version>
+    <version>7.7.0-SNAPSHOT</version>
   </parent>
   <artifactId>jbpm-kie-services</artifactId>
   <packaging>bundle</packaging>
   <name>jBPM :: KIE Services</name>
 
+  <properties>
+    <java.module.name>org.jbpm.kie.services.api</java.module.name>
+  </properties>
+
   <dependencies>
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-artifact</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.drools</groupId>
       <artifactId>drools-core</artifactId>
@@ -34,7 +42,23 @@
     </dependency>
     <dependency>
       <groupId>org.jbpm</groupId>
+      <artifactId>jbpm-flow-builder</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.jbpm</groupId>
+      <artifactId>jbpm-persistence-jpa</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.jbpm</groupId>
       <artifactId>jbpm-human-task-core</artifactId>
+    </dependency>
+     <dependency>
+      <groupId>org.jbpm</groupId>
+      <artifactId>jbpm-human-task-audit</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.jbpm</groupId>
+      <artifactId>jbpm-human-task-jpa</artifactId>
     </dependency>
     <dependency>
       <groupId>org.jbpm</groupId>
@@ -60,21 +84,35 @@
       <artifactId>kie-internal</artifactId>
     </dependency>    
     <dependency>
+      <groupId>org.kie.soup</groupId>
+      <artifactId>kie-soup-commons</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.kie</groupId>
       <artifactId>kie-ci</artifactId>
+      <exclusions>
+        <exclusion>
+          <groupId>javax.annotation</groupId>
+          <artifactId>jsr250-api</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>  
-  
+    <dependency>
+      <groupId>org.kie.soup</groupId>
+      <artifactId>kie-soup-maven-support</artifactId>
+    </dependency>
+
     <dependency>
       <groupId>org.hibernate.javax.persistence</groupId>
-      <artifactId>hibernate-jpa-2.0-api</artifactId>
+      <artifactId>hibernate-jpa-2.1-api</artifactId>
     </dependency>
     <dependency>
       <groupId>org.jboss.spec.javax.transaction</groupId>
-      <artifactId>jboss-transaction-api_1.1_spec</artifactId>
+      <artifactId>jboss-transaction-api_1.2_spec</artifactId>
     </dependency>
     <dependency>
       <groupId>org.jboss.spec.javax.jms</groupId>
-      <artifactId>jboss-jms-api_1.1_spec</artifactId>
+      <artifactId>jboss-jms-api_2.0_spec</artifactId>
       <scope>provided</scope>
     </dependency>
 
@@ -85,13 +123,27 @@
 
     <dependency>
       <groupId>org.jboss.spec.javax.el</groupId>
-      <artifactId>jboss-el-api_2.2_spec</artifactId>
+      <artifactId>jboss-el-api_3.0_spec</artifactId>
     </dependency>
 
-
+    <!-- dashbuilder dataset integration for advanced queries -->
     <dependency>
-      <groupId>org.codehaus.btm</groupId>
-      <artifactId>btm</artifactId>
+      <groupId>org.kie.soup</groupId>
+      <artifactId>kie-soup-dataset-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.kie.soup</groupId>
+      <artifactId>kie-soup-dataset-core</artifactId>
+    </dependency>
+    
+    <dependency>
+      <groupId>org.kie.soup</groupId>
+      <artifactId>kie-soup-dataset-sql</artifactId>
+    </dependency> 
+    
+    <dependency>
+      <groupId>org.jboss.narayana.jta</groupId>
+      <artifactId>narayana-jta</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -121,11 +173,16 @@
     </dependency>
     
     <dependency>
-      <groupId>org.scannotation</groupId>
-      <artifactId>scannotation</artifactId>
+      <groupId>org.reflections</groupId>
+      <artifactId>reflections</artifactId>
     </dependency>
     
     <!-- test -->
+    <dependency>
+      <groupId>org.jbpm</groupId>
+      <artifactId>jbpm-test-util</artifactId>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>org.hibernate</groupId>
       <artifactId>hibernate-entitymanager</artifactId>
@@ -151,6 +208,16 @@
       <artifactId>logback-classic</artifactId>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>com.sun.xml.bind</groupId>
+      <artifactId>jaxb-impl</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.sun.xml.bind</groupId>
+      <artifactId>jaxb-core</artifactId>
+      <scope>test</scope>
+    </dependency>
 
     <dependency>
       <groupId>org.drools</groupId>
@@ -165,10 +232,39 @@
       <scope>test</scope>
     </dependency>
 
+    <!-- test: assertj -->
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+
     <!-- test: arquillian -->
     <dependency>
-    	<groupId>org.jbpm</groupId>
-    	<artifactId>jbpm-shared-services</artifactId>
+      <groupId>org.jbpm</groupId>
+      <artifactId>jbpm-shared-services</artifactId>
+    </dependency>
+
+    <!-- test: byteman -->
+    <dependency>
+      <groupId>org.jboss.byteman</groupId>
+      <artifactId>byteman</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jboss.byteman</groupId>
+      <artifactId>byteman-submit</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jboss.byteman</groupId>
+      <artifactId>byteman-install</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jboss.byteman</groupId>
+      <artifactId>byteman-bmunit</artifactId>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 
@@ -183,36 +279,8 @@
         <filtering>true</filtering>
       </testResource>
     </testResources>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.felix</groupId>
-        <artifactId>maven-bundle-plugin</artifactId>
-        <configuration>
-          <instructions>
-            <Bundle-SymbolicName>org.jbpm.kie.services.api.jpa;singleton:=true</Bundle-SymbolicName>
-            <Import-Package>
-              javax.transaction.*;resolution:=optional,
-              *
-            </Import-Package>
-            <Export-Package>
-              org.jbpm.kie.services.api.*,
-            </Export-Package>
-          </instructions>
-        </configuration>
-      </plugin>   
-      <plugin>
-        <!-- we need to fork always as we have mixture of both arquillian tests and regular
-             and to avoid clashing between them as both need to setup data source and bound it to JNDI -->
-        <artifactId>maven-surefire-plugin</artifactId>
-        <configuration>
-          <forkMode>always</forkMode>
-          <systemProperties>
-            <kie.maven.settings.custom>
-              ${project.build.testOutputDirectory}/jbpm-kie-services-tests-custom-settings.xml
-            </kie.maven.settings.custom>
-          </systemProperties>
-        </configuration>
-      </plugin>
+
+    <plugins> 
       <plugin>
         <artifactId>maven-clean-plugin</artifactId>
         <configuration>
@@ -224,6 +292,30 @@
               </includes>
             </fileset>
           </filesets>
+        </configuration>
+      </plugin>
+      <plugin>
+      <!-- we need to fork always as we have mixture of both arquillian tests and regular 
+          and to avoid clashing between them as both need to setup data source and bound it to JNDI -->
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <forkMode>always</forkMode>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.felix</groupId>
+        <artifactId>maven-bundle-plugin</artifactId>
+        <configuration>
+          <instructions>
+            <Import-Package>
+              javax.transaction.*;resolution:=optional,
+              *
+            </Import-Package>
+            <Export-Package>
+              org.jbpm.kie.services.api.*,
+              org.jbpm.kie.services.impl.model.*,
+            </Export-Package>
+          </instructions>
         </configuration>
       </plugin>
     </plugins>

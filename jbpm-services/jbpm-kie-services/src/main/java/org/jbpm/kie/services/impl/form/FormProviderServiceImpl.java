@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -107,7 +107,12 @@ public class FormProviderServiceImpl implements FormProviderService {
             return "";
         }
         String name = task.getName();
-        ProcessDefinition processDesc = dataService.getProcessesByDeploymentIdProcessId(task.getTaskData().getDeploymentId(), task.getTaskData().getProcessId());
+        final String deploymentId = task.getTaskData().getDeploymentId();
+        final String processId = task.getTaskData().getProcessId();
+        ProcessDefinition processDesc = null;
+        if(deploymentId != null && processId != null) {
+            processDesc = dataService.getProcessesByDeploymentIdProcessId(deploymentId, processId);
+        }
         Map<String, Object> renderContext = new HashMap<String, Object>();
 
         ContentMarshallerContext marshallerContext = getMarshallerContext(task);
@@ -133,29 +138,29 @@ public class FormProviderServiceImpl implements FormProviderService {
         }
 
         // prepare task variables for rendering
-        String processId = task.getTaskData().getProcessId();
-        Map<String, String> taskOutputMappings = null;
-        if (processId != null && !processId.equals("")) {
-
-            taskOutputMappings = bpmn2Service.getTaskOutputMappings(task.getTaskData().getDeploymentId(), processId, task.getName());
-
-        }
-        if (taskOutputMappings == null) {
-            taskOutputMappings = new HashMap<String, String>();
-        }
-
-        // I need to replace the value that comes from the 
-        //process mappings with the value that can be stored in the output Content
         Map<String, Object> finalOutput = new HashMap<String, Object>();
-        for (String key : taskOutputMappings.values()) {
 
-            Object value = ((Map<String, Object>) output).get(key);
-            if (value == null) {
-                value = "";
+        if (processId != null && !processId.equals("")) {
+            // If task has an associated process let's merge the outputs
+            Map<String, String> taskOutputMappings = bpmn2Service.getTaskOutputMappings(deploymentId, processId, task.getName());
+            if (taskOutputMappings == null) {
+                taskOutputMappings = new HashMap<String, String>();
             }
-            finalOutput.put(key, value);
-        }
 
+            // I need to replace the value that comes from the
+            //process mappings with the value that can be stored in the output Content
+            for (String key : taskOutputMappings.keySet()) {
+                Object value = ((Map<String, Object>) output).get(key);
+                if (value == null) {
+                    value = "";
+                }
+                finalOutput.put(key, value);
+            }
+
+        } else if (output instanceof Map && !((Map)output).isEmpty()) {
+            // If the task doesn't belongs to any project BUT it has outputs let's add them directly to the rendering context.
+            finalOutput.putAll( (Map<String, Object>) output );
+        }
 
         // merge template with process variables        
         renderContext.put("task", task);
@@ -185,7 +190,7 @@ public class FormProviderServiceImpl implements FormProviderService {
             }
         }
 
-        logger.warn("Unable to find form to render for task '{}' on process '{}'", name, processDesc.getName());
+        logger.warn("Unable to find form to render for task '{}' on process '{}'", name, processDesc == null ? "" : processDesc.getName());
         return "";
     }
 

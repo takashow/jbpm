@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,12 +22,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.annotation.PreDestroy;
-import javax.enterprise.context.ApplicationScoped;
-
-import org.kie.internal.executor.api.Command;
-import org.kie.internal.executor.api.CommandCallback;
-import org.kie.internal.executor.api.CommandContext;
+import org.kie.api.executor.Command;
+import org.kie.api.executor.CommandCallback;
+import org.kie.api.executor.CommandContext;
 import org.kie.internal.runtime.Cacheable;
 import org.kie.internal.runtime.Closeable;
 import org.slf4j.Logger;
@@ -37,7 +34,7 @@ import org.slf4j.LoggerFactory;
  * Simple cache to keep classes of commands and callback to not attempt to load them every time.
  *
  */
-@ApplicationScoped
+
 public class ClassCacheManager {
     
     private static final Logger logger = LoggerFactory.getLogger(ClassCacheManager.class);
@@ -60,7 +57,7 @@ public class ClassCacheManager {
                     Command commandInstance = (Command) Class.forName(name, true, cl).newInstance();
                     commandCache.put(name, commandInstance);
                 } catch (Exception ex) {
-                    throw new IllegalArgumentException("Unknown Command implemenation with name '" + name + "'");
+                    throw new IllegalArgumentException("Unknown Command implementation with name '" + name + "'");
                 }
     
             } else {
@@ -71,7 +68,7 @@ public class ClassCacheManager {
                         Command commandInstance = (Command) Class.forName(name, true, cl).newInstance();
                         commandCache.put(name, commandInstance);
                     } catch (Exception ex) {
-                        throw new IllegalArgumentException("Unknown Command implemenation with name '" + name + "'");
+                        throw new IllegalArgumentException("Unknown Command implementation with name '" + name + "'");
                     } 
                 }
             }
@@ -96,7 +93,7 @@ public class ClassCacheManager {
                     return commandCallbackInstance;
                     //                            callbackCache.put(name, commandCallbackInstance);
                 } catch (Exception ex) {
-                    throw new IllegalArgumentException("Unknown Command implemenation with name '" + name + "'");
+                    throw new IllegalArgumentException("Unknown Command implementation with name '" + name + "'");
                 }
 
             } else {
@@ -107,7 +104,7 @@ public class ClassCacheManager {
                         CommandCallback commandCallbackInstance = (CommandCallback) Class.forName(name, true, cl).newInstance();
                         callbackCache.put(name, commandCallbackInstance);
                     } catch (Exception ex) {
-                        throw new IllegalArgumentException("Unknown Command implemenation with name '" + name + "'");
+                        throw new IllegalArgumentException("Unknown Command implementation with name '" + name + "'");
                     }
                 }
             }
@@ -146,8 +143,7 @@ public class ClassCacheManager {
     		((Cacheable) instance).close();
     	}
     }
-    
-    @PreDestroy
+        
     public void dispose() {
     	if (commandCache != null) {
     		for (Object command : commandCache.values()) {

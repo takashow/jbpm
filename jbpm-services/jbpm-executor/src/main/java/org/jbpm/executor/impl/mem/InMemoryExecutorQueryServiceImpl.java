@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,16 +18,19 @@ package org.jbpm.executor.impl.mem;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.Predicate;
-import org.kie.internal.executor.api.ErrorInfo;
+import org.kie.api.executor.ErrorInfo;
+import org.kie.api.executor.RequestInfo;
+import org.kie.api.executor.STATUS;
+import org.kie.api.runtime.query.QueryContext;
 import org.kie.internal.executor.api.ExecutorQueryService;
-import org.kie.internal.executor.api.RequestInfo;
-import org.kie.internal.executor.api.STATUS;
+
 
 @SuppressWarnings("unchecked")
 public class InMemoryExecutorQueryServiceImpl implements ExecutorQueryService {
@@ -64,12 +67,19 @@ public class InMemoryExecutorQueryServiceImpl implements ExecutorQueryService {
 		return storeService.findRequest(id);
 	}
 
-	
-	@Override
-	public List<RequestInfo> getRequestByBusinessKey(String businessKey) {
-		Map<Long, RequestInfo> requests = storeService.getRequests();
-		return (List<RequestInfo>) CollectionUtils.select(requests.values(), new GetRequestsByKey(businessKey));
-	}
+    @Override
+    public List<RequestInfo> getRequestByBusinessKey(String businessKey, QueryContext queryContext) {
+        Map<Long, RequestInfo> requests = storeService.getRequests();
+        List<RequestInfo> requestsByBusinessKey = (List<RequestInfo>) CollectionUtils.select(requests.values(), new GetRequestsByKey(businessKey));
+        return applyPaginition(requestsByBusinessKey, queryContext);
+    }
+
+    @Override
+    public List<RequestInfo> getRequestByCommand(String command, QueryContext queryContext) {
+        Map<Long, RequestInfo> requests = storeService.getRequests();
+        List<RequestInfo> requestsByCommand = (List<RequestInfo>) CollectionUtils.select(requests.values(), new GetRequestsByCommand(command));
+        return applyPaginition(requestsByCommand, queryContext);
+    }
 
 	@Override
 	public List<ErrorInfo> getErrorsByRequestId(Long id) {
@@ -206,6 +216,170 @@ public class InMemoryExecutorQueryServiceImpl implements ExecutorQueryService {
 		
 	}
 	
+    private class GetRequestsByCommand implements Predicate {
+        
+        private String command;
+        
+        GetRequestsByCommand(String command) {
+            this.command = command;
+        }
 
+        @Override
+        public boolean evaluate(Object object) {
+            if (object instanceof RequestInfo) {
+                if (command.equals(((RequestInfo)object).getCommandName())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+    }
+    
+    private class GetRequestsByDeploymentId implements Predicate {
+        
+        private String deploymentId;
+        
+        GetRequestsByDeploymentId(String deploymentId) {
+            this.deploymentId = deploymentId;
+        }
+
+        @Override
+        public boolean evaluate(Object object) {
+            if (object instanceof RequestInfo) {
+                if (deploymentId.equals(((RequestInfo)object).getDeploymentId())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+    }
+    
+    private class GetRequestsByProcessInstanceId implements Predicate {
+        
+        private Long processInstanceId;
+        
+        GetRequestsByProcessInstanceId(Long processInstanceId) {
+            this.processInstanceId = processInstanceId;
+        }
+
+        @Override
+        public boolean evaluate(Object object) {
+            if (object instanceof RequestInfo) {
+                if (processInstanceId.equals(((RequestInfo)object).getProcessInstanceId())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+    }    
+
+    @Override
+    public List<RequestInfo> getPendingRequests(QueryContext queryContext) {
+        return applyPaginition(getPendingRequests(), queryContext);
+    }
+
+    @Override
+    public List<RequestInfo> getQueuedRequests(QueryContext queryContext) {
+        return applyPaginition(getQueuedRequests(), queryContext);
+    }
+
+    @Override
+    public List<RequestInfo> getCompletedRequests(QueryContext queryContext) {
+        return applyPaginition(getCompletedRequests(), queryContext);
+    }
+
+    @Override
+    public List<RequestInfo> getInErrorRequests(QueryContext queryContext) {
+        return applyPaginition(getInErrorRequests(), queryContext);
+    }
+
+    @Override
+    public List<RequestInfo> getCancelledRequests(QueryContext queryContext) {
+        return applyPaginition(getCancelledRequests(), queryContext);
+    }
+
+    @Override
+    public List<ErrorInfo> getAllErrors(QueryContext queryContext) {
+        return applyPaginition(getAllErrors(), queryContext);
+    }
+
+    @Override
+    public List<RequestInfo> getAllRequests(QueryContext queryContext) {
+        
+        return applyPaginition(getAllRequests(), queryContext);
+    }
+
+    @Override
+    public List<RequestInfo> getRunningRequests(QueryContext queryContext) {
+        
+        return applyPaginition(getRunningRequests(), queryContext);
+    }
+
+    @Override
+    public List<RequestInfo> getFutureQueuedRequests(QueryContext queryContext) {
+        
+        return applyPaginition(getFutureQueuedRequests(), queryContext);
+    }
+
+    @Override
+    public List<RequestInfo> getRequestsByStatus(List<STATUS> statuses, QueryContext queryContext) {
+
+        return applyPaginition(getRequestsByStatus(statuses), queryContext);
+    }
+	
+    protected <T> List<T> applyPaginition(List<T> input, QueryContext queryContext) {
+        
+        int end = queryContext.getOffset() + queryContext.getCount();
+        if (input.size() < queryContext.getOffset()) {
+            // no elements in given range
+            return new ArrayList<T>();
+        } else if (input.size() >= end) {
+            return Collections.unmodifiableList(new ArrayList<T>(input.subList(queryContext.getOffset(), end)));
+        } else if (input.size() < end) {
+            return Collections.unmodifiableList(new ArrayList<T>(input.subList(queryContext.getOffset(), input.size())));
+        } else {
+            return Collections.unmodifiableList(input);
+        }
+    }
+
+    @Override
+    public RequestInfo getRequestForProcessing(Long requestId) {        
+        return storeService.removeRequest(requestId);
+    }
+
+    @Override
+    public List<RequestInfo> getRequestsByBusinessKey(String businessKey, List<STATUS> statuses, QueryContext queryContext) {
+        Map<Long, RequestInfo> requests = storeService.getRequests();
+        List<RequestInfo> requestsByKey = (List<RequestInfo>) CollectionUtils.select(requests.values(), new GetRequestsByKey(businessKey));
+        requestsByKey = (List<RequestInfo>) CollectionUtils.select(requestsByKey, new GetRequestsByStatus(statuses));
+        return applyPaginition(requestsByKey, queryContext);
+    }
+
+    @Override
+    public List<RequestInfo> getRequestsByCommand(String command, List<STATUS> statuses, QueryContext queryContext) {
+        Map<Long, RequestInfo> requests = storeService.getRequests();
+        List<RequestInfo> requestsByCommand = (List<RequestInfo>) CollectionUtils.select(requests.values(), new GetRequestsByCommand(command));
+        requestsByCommand = (List<RequestInfo>) CollectionUtils.select(requestsByCommand, new GetRequestsByStatus(statuses));
+        return applyPaginition(requestsByCommand, queryContext);
+    }
+
+    @Override
+    public List<RequestInfo> getRequestsByDeployment(String deploymentId, List<STATUS> statuses, QueryContext queryContext) {
+        Map<Long, RequestInfo> requests = storeService.getRequests();
+        List<RequestInfo> requestsByDeployment = (List<RequestInfo>) CollectionUtils.select(requests.values(), new GetRequestsByDeploymentId(deploymentId));
+        requestsByDeployment = (List<RequestInfo>) CollectionUtils.select(requestsByDeployment, new GetRequestsByStatus(statuses));
+        return applyPaginition(requestsByDeployment, queryContext);
+    }
+
+    @Override
+    public List<RequestInfo> getRequestsByProcessInstance(Long processInstanceId, List<STATUS> statuses, QueryContext queryContext) {
+        Map<Long, RequestInfo> requests = storeService.getRequests();
+        List<RequestInfo> requestsByProcessInstance = (List<RequestInfo>) CollectionUtils.select(requests.values(), new GetRequestsByProcessInstanceId(processInstanceId));
+        requestsByProcessInstance = (List<RequestInfo>) CollectionUtils.select(requestsByProcessInstance, new GetRequestsByStatus(statuses));
+        return applyPaginition(requestsByProcessInstance, queryContext);
+    }
 
 }

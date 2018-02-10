@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,12 +35,13 @@ import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ArchivePaths;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
-import org.jbpm.kie.test.util.AbstractBaseTest;
+import org.jbpm.kie.test.util.AbstractKieServicesBaseTest;
 import org.jbpm.process.audit.JPAWorkingMemoryDbLogger;
 import org.jbpm.runtime.manager.impl.PerProcessInstanceRuntimeManager;
 import org.jbpm.runtime.manager.impl.RuntimeEngineImpl;
 import org.jbpm.runtime.manager.util.TestUtil;
 import org.jbpm.services.task.audit.JPATaskLifeCycleEventListener;
+import org.jbpm.services.task.lifecycle.listeners.BAMTaskEventListener;
 import org.jbpm.services.task.wih.ExternalTaskEventListener;
 import org.junit.After;
 import org.junit.BeforeClass;
@@ -62,7 +63,7 @@ import org.kie.internal.runtime.manager.context.ProcessInstanceIdContext;
 import org.kie.internal.task.api.EventService;
 
 @RunWith(Arquillian.class)
-public class SingleRuntimeManagerWithListenersTest extends AbstractBaseTest {
+public class SingleRuntimeManagerWithListenersTest extends AbstractKieServicesBaseTest {
     
     @Deployment()
     public static Archive<?> createDeployment() {
@@ -87,6 +88,7 @@ public class SingleRuntimeManagerWithListenersTest extends AbstractBaseTest {
                 .addPackage("org.jbpm.services.task.subtask")
                 .addPackage("org.jbpm.services.task.rule")
                 .addPackage("org.jbpm.services.task.rule.impl")
+                .addPackage("org.jbpm.services.task.audit.service")
 
                 .addPackage("org.kie.internal.runtime.manager")
                 .addPackage("org.kie.internal.runtime.manager.context")
@@ -112,17 +114,25 @@ public class SingleRuntimeManagerWithListenersTest extends AbstractBaseTest {
                 .addPackage("org.jbpm.kie.services.impl.audit")
                 .addPackage("org.jbpm.kie.services.impl.form")
                 .addPackage("org.jbpm.kie.services.impl.form.provider")
+                .addPackage("org.jbpm.services.cdi.impl.producers")
+                .addPackage("org.jbpm.kie.services.impl.query")  
+                .addPackage("org.jbpm.kie.services.impl.query.mapper")  
+                .addPackage("org.jbpm.kie.services.impl.query.persistence")  
+                .addPackage("org.jbpm.kie.services.impl.query.preprocessor")  
                 
                 .addPackage("org.jbpm.services.cdi")
                 .addPackage("org.jbpm.services.cdi.impl")
                 .addPackage("org.jbpm.services.cdi.impl.form")
                 .addPackage("org.jbpm.services.cdi.impl.manager")
                 .addPackage("org.jbpm.services.cdi.producer")
-                .addPackage("org.jbpm.services.cdi.impl.producers")
+                .addPackage("org.jbpm.services.cdi.impl.security")
+                .addPackage("org.jbpm.services.cdi.impl.query")
                 
                 .addPackage("org.jbpm.kie.services.test")
                 .addPackage("org.jbpm.services.cdi.test") // Identity Provider Test Impl here
                 .addClass("org.jbpm.services.cdi.test.util.CDITestHelperNoTaskService")
+                .addClass("org.jbpm.services.cdi.test.util.CountDownDeploymentListenerCDIImpl")
+                .addClass("org.jbpm.kie.services.test.objects.CoundDownDeploymentListener")
                 .addAsResource("jndi.properties","jndi.properties")
                 .addAsManifestResource("META-INF/persistence.xml", ArchivePaths.create("persistence.xml"))
                 .addAsManifestResource("META-INF/Taskorm.xml", ArchivePaths.create("Taskorm.xml"))
@@ -228,18 +238,20 @@ public class SingleRuntimeManagerWithListenersTest extends AbstractBaseTest {
         
         List<?> listeners = ((EventService<?>) taskService).getTaskEventListeners();
         assertNotNull(listeners);
-        assertEquals(2, listeners.size());
+        assertEquals(3, listeners.size());
         // prepare listeners class names for assertion
         listenerCLassNames = new ArrayList<String>();
         for (Object o : listeners) {
         	System.out.println("###### " + o.getClass().getName());
         	listenerCLassNames.add(o.getClass().getName());
         }
-        assertEquals(2, listenerCLassNames.size());
+        assertEquals(3, listenerCLassNames.size());
         // JPATaskLifeCycleEventListener was added by custom producer
         assertTrue(listenerCLassNames.contains(JPATaskLifeCycleEventListener.class.getName()));
         // external one is always added to deal with user tasks
         assertTrue(listenerCLassNames.contains(ExternalTaskEventListener.class.getName()));
+        // BAMTaskEventListener was added by custom producer
+        assertTrue(listenerCLassNames.contains(BAMTaskEventListener.class.getName()));
         
         ProcessInstance processInstance = ksession.startProcess("UserTask");
         assertNotNull(processInstance);

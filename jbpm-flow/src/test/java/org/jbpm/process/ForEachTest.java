@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,16 +16,14 @@
 
 package org.jbpm.process;
 
-import static org.junit.Assert.assertEquals;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.drools.core.process.core.datatype.impl.type.ListDataType;
-import org.drools.core.process.core.datatype.impl.type.ObjectDataType;
 import org.jbpm.process.core.context.variable.Variable;
+import org.jbpm.process.core.datatype.impl.type.ListDataType;
+import org.jbpm.process.core.datatype.impl.type.ObjectDataType;
 import org.jbpm.process.instance.impl.Action;
 import org.jbpm.process.test.Person;
 import org.jbpm.process.test.TestProcessEventListener;
@@ -44,6 +42,8 @@ import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.process.ProcessContext;
 import org.slf4j.LoggerFactory;
 
+import static org.junit.Assert.assertEquals;
+
 public class ForEachTest extends AbstractBaseTest {
     
     public void addLogger() { 
@@ -58,15 +58,15 @@ public class ForEachTest extends AbstractBaseTest {
             "bvc-3:2:child", "avc-3:2:child",
             "bvc-3:2:child", "avc-3:2:child",
             "bvc-3:2:child", "avc-3:2:child",
-            "bnt-1:2:1", "bnl-1:2:1", "anl-1:2:1", "ant-1:2:1",
-            "bnt-1:3:1", "bnl-1:3:1", "anl-1:3:1", "ant-1:3:1",
-            "bnt-1:4:1", "bnl-1:4:1",
+            "bnt-1:5:9", "bnl-1:5:9", "anl-1:5:9", "ant-1:5:9",
+            "bnt-1:6:13", "bnl-1:6:13", "anl-1:6:13", "ant-1:6:13",
+            "bnt-1:7:16", "bnl-1:7:16",
             "bnl-1",
-            "bnt-2", "bnl-2",
+            "bnt-18", "bnl-18",
             "bpc", "apc",
-            "anl-2", "ant-2",
+            "anl-18", "ant-18",
             "anl-1",
-            "anl-1:4:1", "ant-1:4:1",
+            "anl-1:7:16", "ant-1:7:16",
             "ant-1",
             "anl-0", "ant-0",
             "aps"
@@ -83,7 +83,7 @@ public class ForEachTest extends AbstractBaseTest {
         variable.setName("persons");
         ListDataType listDataType = new ListDataType();
         ObjectDataType personDataType = new ObjectDataType();
-        personDataType.setClassName("org.drools.Person");
+        personDataType.setClassName("org.jbpm.process.test.Person");
         listDataType.setType(personDataType);
         variable.setType(listDataType);
         variables.add(variable);

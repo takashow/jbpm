@@ -1,8 +1,20 @@
-package org.jbpm.integrationtests;
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import static org.jbpm.integrationtests.JbpmSerializationHelper.getSerialisedStatefulKnowledgeSession;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+package org.jbpm.integrationtests;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -18,20 +30,26 @@ import org.jbpm.process.core.context.variable.VariableScope;
 import org.jbpm.process.instance.ProcessInstance;
 import org.jbpm.process.instance.context.variable.VariableScopeInstance;
 import org.jbpm.test.util.AbstractBaseTest;
+import org.junit.Ignore;
 import org.junit.Test;
+import org.kie.api.definition.KiePackage;
 import org.kie.api.io.ResourceType;
 import org.kie.api.marshalling.Marshaller;
+import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.process.WorkItem;
 import org.kie.api.runtime.process.WorkItemHandler;
 import org.kie.api.runtime.process.WorkItemManager;
 import org.kie.internal.builder.KnowledgeBuilder;
 import org.kie.internal.builder.KnowledgeBuilderFactory;
-import org.kie.internal.definition.KnowledgePackage;
 import org.kie.internal.io.ResourceFactory;
 import org.kie.internal.marshalling.MarshallerFactory;
 import org.kie.internal.runtime.StatefulKnowledgeSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.jbpm.integrationtests.JbpmSerializationHelper.getSerialisedStatefulKnowledgeSession;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class ProcessMarshallingTest extends AbstractBaseTest {
     
@@ -74,7 +92,8 @@ public class ProcessMarshallingTest extends AbstractBaseTest {
         kbuilder.add( ResourceFactory.newReaderResource(new StringReader(rule)), ResourceType.DRL );
         kbuilder.add( ResourceFactory.newReaderResource( new StringReader( process ) ), ResourceType.DRF );
 
-        StatefulKnowledgeSession ksession = createKieSession(kbuilder.getKnowledgePackages().toArray(new KnowledgePackage[0]));
+        KieSession ksession = createKieSession(kbuilder.getKnowledgePackages().toArray(new KiePackage[0]));
+        ksession.getEnvironment().set("org.jbpm.rule.task.waitstate", true);
 
         List<Object> list = new ArrayList<Object>();
         ksession.setGlobal( "list", list );
@@ -84,12 +103,12 @@ public class ProcessMarshallingTest extends AbstractBaseTest {
         ksession.startProcess("org.test.ruleflow");
         
         assertEquals(1, ksession.getProcessInstances().size());
-        
+                
         ksession = JbpmSerializationHelper.getSerialisedStatefulKnowledgeSession( ksession, true );
         assertEquals(1, ksession.getProcessInstances().size());
         
         ksession.fireAllRules();
-
+        
         assertEquals( 1, ((List<Object>) ksession.getGlobal("list")).size());
         assertEquals( p, ((List<Object>) ksession.getGlobal("list")).get(0));
         assertEquals(0, ksession.getProcessInstances().size());
@@ -106,7 +125,7 @@ public class ProcessMarshallingTest extends AbstractBaseTest {
     		"  <header>\n" +
     		"    <variables>\n" +
     		"      <variable name=\"myVariable\" >\n" +
-    		"        <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+    		"        <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
     		"        <value>OldValue</value>\n" +
     		"      </variable>\n" +
     		"    </variables>\n" +
@@ -116,19 +135,19 @@ public class ProcessMarshallingTest extends AbstractBaseTest {
     		"    <workItem id=\"2\" name=\"Email\" >\n" +
     		"      <work name=\"Email\" >\n" +
     		"        <parameter name=\"Subject\" >\n" +
-    		"          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+    		"          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
     		"          <value>Mail</value>\n" +
     		"        </parameter>\n" +
     		"        <parameter name=\"Text\" >\n" +
-    		"          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+    		"          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
     		"          <value>This is an email</value>\n" +
     		"        </parameter>\n" +
     		"        <parameter name=\"To\" >\n" +
-    		"          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+    		"          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
     		"          <value>you@mail.com</value>\n" +
     		"        </parameter>\n" +
     		"        <parameter name=\"From\" >\n" +
-    		"          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+    		"          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
     		"          <value>me@mail.com</value>\n" +
     		"        </parameter>\n" +
     		"      </work>\n" +
@@ -142,7 +161,7 @@ public class ProcessMarshallingTest extends AbstractBaseTest {
 			"</process>";
         builder.addProcessFromXml( new StringReader( process ));
 
-        StatefulKnowledgeSession session = createKieSession(builder.getPackage());
+        KieSession session = createKieSession(builder.getPackages());
         
         TestWorkItemHandler handler = new TestWorkItemHandler();
         session.getWorkItemManager().registerWorkItemHandler("Email", handler);
@@ -201,7 +220,7 @@ public class ProcessMarshallingTest extends AbstractBaseTest {
             "    <workItem id=\"12\" name=\"Log\" >\n" +
             "      <work name=\"Log\" >\n" +
             "        <parameter name=\"Message\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "          <value>This is a log message</value>\n" +
             "        </parameter>\n" +
             "      </work>\n" +
@@ -209,7 +228,7 @@ public class ProcessMarshallingTest extends AbstractBaseTest {
             "    <composite id=\"13\" name=\"CompositeNode\" >\n" +
             "      <variables>\n" +
             "        <variable name=\"x\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "          <value>x-value</value>\n" +
             "        </variable>\n" +
             "      </variables>\n" +
@@ -217,35 +236,35 @@ public class ProcessMarshallingTest extends AbstractBaseTest {
             "        <humanTask id=\"1\" name=\"Human Task\" swimlane=\"swimlane\" >\n" +
             "          <work name=\"Human Task\" >\n" +
             "            <parameter name=\"ActorId\" >\n" +
-            "              <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "              <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "              <value>John Doe</value>\n" +
             "            </parameter>\n" +
             "            <parameter name=\"Priority\" >\n" +
-            "              <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "              <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "            </parameter>\n" +
             "            <parameter name=\"TaskName\" >\n" +
-            "              <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "              <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "              <value>Do something !</value>\n" +
             "            </parameter>\n" +
             "            <parameter name=\"Comment\" >\n" +
-            "              <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "              <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "            </parameter>\n" +
             "          </work>\n" +
             "        </humanTask>\n" +
             "        <humanTask id=\"2\" name=\"Human Task\" swimlane=\"swimlane\" >\n" +
             "          <work name=\"Human Task\" >\n" +
             "            <parameter name=\"ActorId\" >\n" +
-            "              <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "              <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "            </parameter>\n" +
             "            <parameter name=\"Priority\" >\n" +
-            "              <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "              <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "            </parameter>\n" +
             "            <parameter name=\"TaskName\" >\n" +
-            "              <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "              <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "              <value>Do something else !</value>\n" +
             "            </parameter>\n" +
             "            <parameter name=\"Comment\" >\n" +
-            "              <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "              <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "            </parameter>\n" +
             "          </work>\n" +
             "          <mapping type=\"in\" from=\"x\" to=\"Priority\" />\n" +
@@ -323,7 +342,7 @@ public class ProcessMarshallingTest extends AbstractBaseTest {
             "end";
         builder.addPackageFromDrl( new StringReader( rule ));
         
-        StatefulKnowledgeSession session = createKieSession(builder.getPackage());
+        KieSession session = createKieSession(builder.getPackages());
         
         TestWorkItemHandler handler1 = new TestWorkItemHandler();
         session.getWorkItemManager().registerWorkItemHandler("Log", handler1);
@@ -366,7 +385,7 @@ public class ProcessMarshallingTest extends AbstractBaseTest {
             "    <header>\n" +
             "      <variables>\n" +
             "        <variable name=\"list\" >\n" +
-    		"          <type name=\"org.drools.core.process.core.datatype.impl.type.ObjectDataType\" className=\"java.util.List\" />\n" +
+    		"          <type name=\"org.jbpm.process.core.datatype.impl.type.ObjectDataType\" className=\"java.util.List\" />\n" +
     		"        </variable>\n" +
     		"      </variables>\n" +
     		"    </header>\n" +
@@ -377,16 +396,16 @@ public class ProcessMarshallingTest extends AbstractBaseTest {
     		"          <humanTask id=\"1\" name=\"Human Task\" >\n" +
     		"            <work name=\"Human Task\" >\n" +
     		"              <parameter name=\"Comment\" >\n" +
-    		"                <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+    		"                <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
     		"              </parameter>\n" +
     		"              <parameter name=\"ActorId\" >\n" +
-    		"                <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+    		"                <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
     		"              </parameter>\n" +
     		"              <parameter name=\"Priority\" >\n" +
-    		"                <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+    		"                <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
     		"              </parameter>\n" +
     		"              <parameter name=\"TaskName\" >\n" +
-    		"                <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+    		"                <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
     		"                <value>Do something: #{item}</value>\n" +
     		"              </parameter>\n" +
     		"            </work>\n" +
@@ -394,16 +413,16 @@ public class ProcessMarshallingTest extends AbstractBaseTest {
     		"          <humanTask id=\"2\" name=\"Human Task Again\" >\n" +
     		"            <work name=\"Human Task\" >\n" +
     		"              <parameter name=\"Comment\" >\n" +
-    		"                <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+    		"                <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
     		"              </parameter>\n" +
     		"              <parameter name=\"ActorId\" >\n" +
-    		"                <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+    		"                <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
     		"              </parameter>\n" +
     		"              <parameter name=\"Priority\" >\n" +
-    		"                <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+    		"                <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
     		"              </parameter>\n" +
     		"              <parameter name=\"TaskName\" >\n" +
-    		"                <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+    		"                <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
     		"                <value>Do something else: #{item}</value>\n" +
     		"              </parameter>\n" +
     		"            </work>\n" +
@@ -431,7 +450,7 @@ public class ProcessMarshallingTest extends AbstractBaseTest {
             "</process>\n";
         builder.addProcessFromXml( new StringReader( process ));
 
-        StatefulKnowledgeSession session = createKieSession(builder.getPackage());
+        KieSession session = createKieSession(builder.getPackages());
         
         TestListWorkItemHandler handler = new TestListWorkItemHandler();
         session.getWorkItemManager().registerWorkItemHandler("Human Task", handler);
@@ -465,7 +484,7 @@ public class ProcessMarshallingTest extends AbstractBaseTest {
         assertEquals(0, session.getProcessInstances().size());
     }
     
-    @Test
+    @Test @Ignore
     public void testMarshallingProcessInstanceWithTimer() throws Exception {
         String process = 
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
@@ -491,7 +510,7 @@ public class ProcessMarshallingTest extends AbstractBaseTest {
             "</process>\n";
         builder.addProcessFromXml( new StringReader( process ));
 
-        final StatefulKnowledgeSession session = createKieSession(builder.getPackage());
+        final KieSession session = createKieSession(builder.getPackages());
         
         session.startProcess("com.sample.ruleflow", null);
         assertEquals(1, session.getProcessInstances().size());
@@ -537,7 +556,7 @@ public class ProcessMarshallingTest extends AbstractBaseTest {
             "</process>\n";
         builder.addProcessFromXml( new StringReader( process ));
 
-        StatefulKnowledgeSession session = createKieSession(builder.getPackage());
+        KieSession session = createKieSession(builder.getPackages());
         
         session.startProcess("com.sample.ruleflow", null);
         
@@ -600,11 +619,11 @@ public class ProcessMarshallingTest extends AbstractBaseTest {
             "  <header>\n" +
             "    <variables>\n" +
             "      <variable name=\"myVariable\" >\n" +
-            "        <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "        <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "        <value>OldValue</value>\n" +
             "      </variable>\n" +
             "      <variable name=\"myPerson\" >\n" +
-            "        <type name=\"org.drools.core.process.core.datatype.impl.type.ObjectDataType\" className=\"org.jbpm.integrationtests.test.Person\"/>\n" +
+            "        <type name=\"org.jbpm.process.core.datatype.impl.type.ObjectDataType\" className=\"org.jbpm.integrationtests.test.Person\"/>\n" +
             "      </variable>\n" +
             "    </variables>\n" +
             "  </header>\n" +
@@ -613,11 +632,11 @@ public class ProcessMarshallingTest extends AbstractBaseTest {
             "    <workItem id=\"2\" name=\"Email\" >\n" +
             "      <work name=\"Report\" >\n" +
             "        <parameter name=\"Subject\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "          <value>Mail</value>\n" +
             "        </parameter>\n" +
             "        <parameter name=\"Subject\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "          <value>Mail</value>\n" +
             "        </parameter>\n" +
             "      </work>\n" +
@@ -631,7 +650,7 @@ public class ProcessMarshallingTest extends AbstractBaseTest {
             "</process>";
         builder.addProcessFromXml( new StringReader( process ));
 
-        StatefulKnowledgeSession session = createKieSession(builder.getPackage());
+        KieSession session = createKieSession(builder.getPackages());
         
         TestWorkItemHandler handler = new TestWorkItemHandler();
         session.getWorkItemManager().registerWorkItemHandler("Report", handler);

@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 JBoss Inc
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -82,7 +82,7 @@ public class JAASUserGroupCallbackImpl extends AbstractUserGroupInfo implements 
         
 		Properties config = readProperties(propertiesLocation, DEFAULT_PROPERTIES_NAME);
 		if (config != null) {
-			this.rolePrincipleName = config.getProperty("jaas.role.principle.name");
+			this.rolePrincipleName = config.getProperty("jaas.role.principle.name", "Roles");
 		}
  	}
 	
@@ -108,7 +108,7 @@ public class JAASUserGroupCallbackImpl extends AbstractUserGroupInfo implements 
 		return true;
 	}
 
-	public List<String> getGroupsForUser(String userId, List<String> groupIds, List<String> allExistingGroupIds) {
+	public List<String> getGroupsForUser(String userId) {
 		List<String> roles = new ArrayList<String>();
         try {
             Subject subject = getSubjectFromContainer();

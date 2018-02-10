@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -37,10 +37,9 @@ public class UserTaskInstanceDesc implements org.jbpm.services.api.model.UserTas
 	private Long processInstanceId;
 	private Date createdOn;
 	private Date dueDate;
+	private String formName;
 	
-	
-	
-	public UserTaskInstanceDesc(Long taskId, String status,
+    public UserTaskInstanceDesc(Long taskId, String status,
 			Date activationTime, String name, String description,
 			Integer priority, String actualOwner, String createdBy,
 			String deploymentId, String processId, Long processInstanceId,
@@ -60,7 +59,37 @@ public class UserTaskInstanceDesc implements org.jbpm.services.api.model.UserTas
 		this.createdOn = createdOn;
 		this.dueDate = dueDate;
 	}
-
+    
+    public UserTaskInstanceDesc(Long taskId, String name, String description, Integer priority, Date dueDate, String formName) {
+        super();
+        this.taskId = taskId;
+        this.name = name;
+        this.description = description;
+        this.priority = priority;
+        this.dueDate = dueDate;
+        this.formName = formName;
+    }
+    
+    public UserTaskInstanceDesc(Long taskId, String status, String actualOwner, 
+            String name, Integer priority, String createdBy, String processId, 
+            Long processInstanceId, Date createdOn, String formName, 
+            String deploymentId, Date dueDate) {
+        super();
+        this.taskId = taskId;
+        this.status = status;
+        this.name = name;
+        this.priority = priority;
+        this.actualOwner = actualOwner;
+        this.createdBy = createdBy;
+        this.deploymentId = deploymentId;
+        this.processId = processId;
+        this.processInstanceId = processInstanceId;
+        this.createdOn = createdOn;
+        this.formName = formName;
+        this.deploymentId = deploymentId;
+        this.dueDate = dueDate;
+    }
+    
 	@Override
 	public Long getTaskId() {
 		
@@ -138,8 +167,33 @@ public class UserTaskInstanceDesc implements org.jbpm.services.api.model.UserTas
 		
 		return this.deploymentId;
 	}
-
+	
 	@Override
+    public String getFormName() {
+        return formName;
+    }
+    
+    public void setFormName(String formName) {
+        this.formName = formName;
+    }
+	
+    public void setName(String name) {
+        this.name = name;
+    }
+    
+    public void setDescription(String description) {
+        this.description = description;
+    }
+    
+    public void setPriority(Integer priority) {
+        this.priority = priority;
+    }
+    
+    public void setDueDate(Date dueDate) {
+        this.dueDate = dueDate;
+    }
+
+    @Override
 	public String toString() {
 		return "UserTaskInstanceDesc [taskId=" + taskId + ", name=" + name
 				+ ", deploymentId=" + deploymentId + ", processInstanceId="

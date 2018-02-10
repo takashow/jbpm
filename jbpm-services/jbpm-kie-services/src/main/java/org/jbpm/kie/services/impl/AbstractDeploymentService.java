@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +19,7 @@ package org.jbpm.kie.services.impl;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javax.persistence.EntityManagerFactory;
 
-import org.jbpm.kie.services.api.IdentityProvider;
+import org.jbpm.kie.services.api.DeploymentIdResolver;
 import org.jbpm.kie.services.impl.audit.ServicesAwareAuditEventBuilder;
 import org.jbpm.kie.services.impl.security.IdentityRolesSecurityManager;
 import org.jbpm.process.audit.event.AuditEventBuilder;
@@ -41,22 +41,29 @@ import org.jbpm.services.api.RuntimeDataService;
 import org.jbpm.services.api.model.DeployedUnit;
 import org.jbpm.services.api.model.DeploymentUnit;
 import org.jbpm.services.api.model.ProcessInstanceDesc;
+import org.kie.api.runtime.KieContainer;
 import org.kie.api.runtime.manager.RuntimeEnvironment;
 import org.kie.api.runtime.manager.RuntimeManager;
 import org.kie.api.runtime.manager.RuntimeManagerFactory;
 import org.kie.api.runtime.process.ProcessInstance;
-import org.kie.internal.query.QueryContext;
+import org.kie.api.runtime.query.QueryContext;
+import org.kie.internal.identity.IdentityProvider;
 import org.kie.internal.runtime.conf.DeploymentDescriptor;
 import org.kie.internal.runtime.manager.InternalRuntimeManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class AbstractDeploymentService implements DeploymentService, ListenerSupport {
+	
+	private static Logger logger = LoggerFactory.getLogger(AbstractDeploymentService.class);
     
     protected RuntimeManagerFactory managerFactory;     
     protected RuntimeDataService runtimeDataService;    
     protected EntityManagerFactory emf;    
     protected IdentityProvider identityProvider;
     
-    protected Set<DeploymentEventListener> listeners = new HashSet<DeploymentEventListener>();
+    protected Set<DeploymentEventListener> listeners = new LinkedHashSet<DeploymentEventListener>();
+    
     
     @Override
     public void addListener(DeploymentEventListener listener) {
@@ -81,7 +88,7 @@ public abstract class AbstractDeploymentService implements DeploymentService, Li
             throw new IllegalStateException("Unit with id " + unit.getIdentifier() + " is already deployed");
         }
     }
-    
+   
     public void notifyOnDeploy(DeploymentUnit unit, DeployedUnit deployedUnit){
     	DeploymentEvent event = new DeploymentEvent(unit.getIdentifier(), deployedUnit);
     	for (DeploymentEventListener listener : listeners) {
@@ -95,7 +102,20 @@ public abstract class AbstractDeploymentService implements DeploymentService, Li
     	}
     }
     
-    public void commonDeploy(DeploymentUnit unit, DeployedUnitImpl deployedUnit, RuntimeEnvironment environemnt) {
+    public void notifyOnActivate(DeploymentUnit unit, DeployedUnit deployedUnit){               
+        DeploymentEvent event = new DeploymentEvent(unit.getIdentifier(), deployedUnit);
+    	for (DeploymentEventListener listener : listeners) {
+    		listener.onActivate(event);
+    	}    
+    }
+    public void notifyOnDeactivate(DeploymentUnit unit, DeployedUnit deployedUnit){
+        DeploymentEvent event = new DeploymentEvent(unit.getIdentifier(), deployedUnit);
+    	for (DeploymentEventListener listener : listeners) {
+    		listener.onDeactivate(event);
+    	}    	
+    }
+    
+    public void commonDeploy(DeploymentUnit unit, DeployedUnitImpl deployedUnit, RuntimeEnvironment environemnt, KieContainer kieContainer) {
 
         synchronized (this) {
         
@@ -107,6 +127,7 @@ public abstract class AbstractDeploymentService implements DeploymentService, Li
             RuntimeManager manager = null;
             deploymentsMap.put(unit.getIdentifier(), deployedUnit);
             ((SimpleRuntimeEnvironment) environemnt).addToEnvironment("IdentityProvider", identityProvider);
+            ((SimpleRuntimeEnvironment) environemnt).addToEnvironment("Active", deployedUnit.isActive());
             try {
                 switch (unit.getStrategy()) {
             
@@ -120,9 +141,18 @@ public abstract class AbstractDeploymentService implements DeploymentService, Li
                     case PER_PROCESS_INSTANCE:
                         manager = managerFactory.newPerProcessInstanceRuntimeManager(environemnt, unit.getIdentifier());
                         break;
+                    case PER_CASE:
+                        manager = managerFactory.newPerCaseRuntimeManager(environemnt, unit.getIdentifier());
+                        break;
                     default:
                         throw new IllegalArgumentException("Invalid strategy " + unit.getStrategy());
-                }            
+                }  
+                
+                if (!deployedUnit.isActive()) {
+                    ((InternalRuntimeManager)manager).deactivate();
+                }                
+                
+                ((InternalRuntimeManager)manager).setKieContainer(kieContainer);
                 deployedUnit.setRuntimeManager(manager);
                 DeploymentDescriptor descriptor = ((InternalRuntimeManager)manager).getDeploymentDescriptor();
                 List<String> requiredRoles = descriptor.getRequiredRoles(DeploymentDescriptor.TYPE_EXECUTE);
@@ -168,18 +198,28 @@ public abstract class AbstractDeploymentService implements DeploymentService, Li
     public RuntimeManager getRuntimeManager(String deploymentUnitId) {
         if (deploymentUnitId != null && deploymentsMap.containsKey(deploymentUnitId)) {
             return deploymentsMap.get(deploymentUnitId).getRuntimeManager();
+        } else if (deploymentUnitId != null && deploymentUnitId.toLowerCase().contains("latest")) {
+        	String matched = DeploymentIdResolver.matchAndReturnLatest(deploymentUnitId, deploymentsMap.keySet());
+
+    		return deploymentsMap.get(matched).getRuntimeManager();
+
         }
         
         return null;
     }
 
-    @Override
+	@Override
     public DeployedUnit getDeployedUnit(String deploymentUnitId) {
-        if (deploymentsMap.containsKey(deploymentUnitId)) {
-            return deploymentsMap.get(deploymentUnitId);
+		DeployedUnit deployedUnit = null;
+		if (deploymentsMap.containsKey(deploymentUnitId)) {
+			deployedUnit = deploymentsMap.get(deploymentUnitId);
+        } else if (deploymentUnitId != null && deploymentUnitId.toLowerCase().contains("latest")) {
+        	String matched = DeploymentIdResolver.matchAndReturnLatest(deploymentUnitId, deploymentsMap.keySet());
+
+        	deployedUnit = deploymentsMap.get(matched);        	
         }
-        
-        return null;
+		
+        return deployedUnit;
     }
     
     public Map<String, DeployedUnit> getDeploymentsMap() {
@@ -229,4 +269,24 @@ public abstract class AbstractDeploymentService implements DeploymentService, Li
         
         return auditEventBuilder;
     }
+	
+    @Override
+    public boolean isDeployed(String deploymentUnitId) {
+        return deploymentsMap.containsKey(deploymentUnitId);
+    }
+    
+    public void shutdown() {
+    	Collection<DeployedUnit> deployedUnits = getDeployedUnits();
+    	
+    	for (DeployedUnit deployed : deployedUnits) {
+    		try {
+    			deployed.getRuntimeManager().close();
+    		} catch (Exception e) {
+    			logger.warn("Error encountered while shutting down deplyment {} due to {}", 
+    					deployed.getDeploymentUnit().getIdentifier(), e.getMessage());
+    		}
+    	}
+    	deploymentsMap.clear();
+    }
+	
 }

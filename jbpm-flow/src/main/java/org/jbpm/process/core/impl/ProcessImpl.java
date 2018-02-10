@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.jbpm.process.core.Context;
 import org.jbpm.process.core.ContextContainer;
@@ -34,7 +35,6 @@ import org.kie.api.io.Resource;
 /**
  * Default implementation of a Process
  * 
- * @author <a href="mailto:kris_verlaenen@hotmail.com">Kris Verlaenen</a>
  */
 public class ProcessImpl implements Process, Serializable, ContextResolver {
     
@@ -49,7 +49,7 @@ public class ProcessImpl implements Process, Serializable, ContextResolver {
     private ContextContainer contextContainer = new ContextContainerImpl();
     private Map<String, Object> metaData = new HashMap<String, Object>();
     private transient Map<String, Object> runtimeMetaData = new HashMap<String, Object>();
-    private List<String> imports;
+    private Set<String> imports;
     private Map<String, String> globals;
     private List<String> functionImports;
 
@@ -161,11 +161,11 @@ public class ProcessImpl implements Process, Serializable, ContextResolver {
         this.resource = resource;        
     }
     
-    public List<String> getImports() {
+    public Set<String> getImports() {
         return imports;
     }
 
-    public void setImports(List<String> imports) {
+    public void setImports(Set<String> imports) {
         this.imports = imports;
     }
     

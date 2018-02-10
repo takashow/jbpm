@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,10 +23,12 @@ import org.drools.core.time.JobHandle;
 
 /**
  * 
- * @author <a href="mailto:kris_verlaenen@hotmail.com">Kris Verlaenen</a>
  */
 public class TimerInstance implements Serializable{
 
+    /** Generated serial version UID */
+    private static final long serialVersionUID = 9161292833931227195L;
+    
     private long id;
     private long timerId;
     private long delay;
@@ -36,7 +38,7 @@ public class TimerInstance implements Serializable{
     private Date lastTriggered;
     private long processInstanceId;
     private int repeatLimit = -1;
-    private int sessionId;
+    private long sessionId;
     private String cronExpression;
     
     public long getId() {
@@ -103,12 +105,6 @@ public class TimerInstance implements Serializable{
 		this.processInstanceId = processInstanceId;
 	}
 
-    @Override
-    public String toString() {
-        return "TimerInstance [id=" + id + ", timerId=" + timerId + ", delay=" + delay + ", period=" + period + ", jobHandle=" + jobHandle + ", activated=" + activated + ", lastTriggered=" + lastTriggered + ", processInstanceId=" + processInstanceId
-               + "]";
-    }
-
     public int getRepeatLimit() {
         return repeatLimit;
     }
@@ -117,11 +113,11 @@ public class TimerInstance implements Serializable{
         this.repeatLimit = stopAfter;
     }
 
-    public int getSessionId() {
+    public long getSessionId() {
         return sessionId;
     }
 
-    public void setSessionId(int sessionId) {
+    public void setSessionId(long sessionId) {
         this.sessionId = sessionId;
     }
 
@@ -132,5 +128,11 @@ public class TimerInstance implements Serializable{
     public void setCronExpression(String cronExpression) {
         this.cronExpression = cronExpression;
     }
-    
+
+    @Override
+    public String toString() {
+        return "TimerInstance [id=" + id + ", timerId=" + timerId + ", delay=" + delay + ", period=" + period + ", jobHandle=" + jobHandle + ", activated=" + activated + ", lastTriggered=" + lastTriggered + ", processInstanceId=" + processInstanceId
+               + "]";
+    }
+
 }

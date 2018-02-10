@@ -1,3 +1,19 @@
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jbpm.integrationtests.marshalling;
 
 import static org.junit.Assert.assertNotNull;
@@ -13,6 +29,7 @@ import org.drools.core.common.InternalKnowledgeRuntime;
 import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.impl.EnvironmentFactory;
 import org.drools.core.impl.InternalKnowledgeBase;
+import org.drools.core.impl.KnowledgeBaseFactory;
 import org.drools.core.impl.KnowledgeBaseImpl;
 import org.drools.core.impl.StatefulKnowledgeSessionImpl;
 import org.drools.core.io.impl.ClassPathResource;
@@ -27,15 +44,14 @@ import org.jbpm.ruleflow.instance.RuleFlowProcessInstance;
 import org.jbpm.test.util.AbstractBaseTest;
 import org.jbpm.workflow.core.impl.WorkflowProcessImpl;
 import org.junit.Test;
+import org.kie.api.KieBase;
 import org.kie.api.io.ResourceType;
 import org.kie.api.marshalling.ObjectMarshallingStrategy;
+import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.process.ProcessInstance;
-import org.kie.internal.KnowledgeBase;
-import org.kie.internal.KnowledgeBaseFactory;
 import org.kie.internal.builder.KnowledgeBuilder;
 import org.kie.internal.builder.KnowledgeBuilderFactory;
 import org.kie.internal.marshalling.MarshallerFactory;
-import org.kie.internal.runtime.StatefulKnowledgeSession;
 
 public class ProcessInstanceResolverStrategyTest extends AbstractBaseTest {
 
@@ -43,8 +59,8 @@ public class ProcessInstanceResolverStrategyTest extends AbstractBaseTest {
     
     @Test
     public void testAccept() {
-        KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
-        StatefulKnowledgeSession ksession = kbase.newStatefulKnowledgeSession();
+        KieBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
+        KieSession ksession = kbase.newKieSession();
         WorkflowProcessImpl process = new WorkflowProcessImpl();
 
         RuleFlowProcessInstance processInstance = new RuleFlowProcessInstance();
@@ -65,8 +81,8 @@ public class ProcessInstanceResolverStrategyTest extends AbstractBaseTest {
         // Setup
         KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
         kbuilder.add(new ClassPathResource(PROCESS_NAME, this.getClass()), ResourceType.DRF);
-        KnowledgeBase kbase = kbuilder.newKnowledgeBase();
-        StatefulKnowledgeSession ksession = kbase.newStatefulKnowledgeSession();
+        KieBase kbase = kbuilder.newKieBase();
+        KieSession ksession = kbase.newKieSession();
         ProcessInstance processInstance = ksession.createProcessInstance("process name", new HashMap<String, Object>());
         ksession.insert(processInstance);
 

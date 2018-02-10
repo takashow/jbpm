@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 JBoss Inc
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,9 +16,12 @@
 package org.jbpm.runtime.manager.impl.factory;
 
 import org.drools.core.command.impl.CommandBasedStatefulKnowledgeSession;
-import org.drools.persistence.SingleSessionCommandService;
+import org.drools.persistence.PersistableRunner;
 import org.drools.persistence.jpa.OptimisticLockRetryInterceptor;
 import org.drools.persistence.jta.TransactionLockInterceptor;
+import org.jbpm.runtime.manager.impl.error.ExecutionErrorHandlerInterceptor;
+import org.kie.api.runtime.Environment;
+import org.kie.api.runtime.EnvironmentName;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.manager.RuntimeEnvironment;
 import org.kie.internal.persistence.jpa.JPAKnowledgeService;
@@ -31,27 +34,32 @@ import org.kie.internal.runtime.manager.SessionFactory;
 public class JPASessionFactory implements SessionFactory {
 
     private RuntimeEnvironment environment;
+    private String owner;
     
-    public JPASessionFactory(RuntimeEnvironment environment) {
+    public JPASessionFactory(RuntimeEnvironment environment, String owner) {
         this.environment = environment;
+        this.owner = owner;
     }
     
     @Override
     public KieSession newKieSession() {
-
+        Environment env = environment.getEnvironment();
+        env.set(EnvironmentName.DEPLOYMENT_ID, owner);
         KieSession ksession = JPAKnowledgeService.newStatefulKnowledgeSession(
-                environment.getKieBase(), environment.getConfiguration(), environment.getEnvironment());
+                environment.getKieBase(), environment.getConfiguration(), env);
         addInterceptors(ksession);
         return ksession;
     }
 
     @Override
-    public KieSession findKieSessionById(Integer sessionId) {
+    public KieSession findKieSessionById(Long sessionId) {
         if (sessionId == null) {
             return null;
         }
+        Environment env = environment.getEnvironment();
+        env.set(EnvironmentName.DEPLOYMENT_ID, owner);
         KieSession ksession = JPAKnowledgeService.loadStatefulKnowledgeSession(sessionId,
-                environment.getKieBase(), environment.getConfiguration(), environment.getEnvironment());
+                environment.getKieBase(), environment.getConfiguration(), env);
         addInterceptors(ksession);
         return ksession;
     }
@@ -62,12 +70,18 @@ public class JPASessionFactory implements SessionFactory {
     }
     
     protected void addInterceptors(KieSession ksession) {
-        
-        SingleSessionCommandService sscs = (SingleSessionCommandService)
-                ((CommandBasedStatefulKnowledgeSession) ksession).getCommandService();
-        sscs.addInterceptor(new OptimisticLockRetryInterceptor());
+
+        PersistableRunner runner = (PersistableRunner)
+                ((CommandBasedStatefulKnowledgeSession) ksession).getRunner();        
+        runner.addInterceptor(new OptimisticLockRetryInterceptor());
         // even though it's added always TransactionLockInterceptor is by default disabled so won't do anything
-        sscs.addInterceptor(new TransactionLockInterceptor(ksession.getEnvironment()));
+        runner.addInterceptor(new TransactionLockInterceptor(ksession.getEnvironment()));
+        runner.addInterceptor(new ExecutionErrorHandlerInterceptor(ksession.getEnvironment()));
+    }
+
+    @Override
+    public void onDispose(Long sessionId) {
+        // no op
     }
     
 }

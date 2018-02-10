@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,13 +16,6 @@
 
 package org.jbpm.services.ejb.test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.kie.scanner.MavenRepository.getMavenRepository;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.text.SimpleDateFormat;
@@ -31,7 +24,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import javax.ejb.EJB;
 
 import org.drools.compiler.kie.builder.impl.InternalKieModule;
@@ -64,7 +56,10 @@ import org.kie.api.task.model.Status;
 import org.kie.api.task.model.Task;
 import org.kie.api.task.model.User;
 import org.kie.internal.task.api.TaskModelProvider;
-import org.kie.scanner.MavenRepository;
+import org.kie.scanner.KieMavenRepository;
+
+import static org.junit.Assert.*;
+import static org.kie.scanner.KieMavenRepository.getKieMavenRepository;
 
 @RunWith(Arquillian.class)
 public class UserTaskServiceEJBIntegrationTest extends AbstractTestSupport {
@@ -111,8 +106,8 @@ public class UserTaskServiceEJBIntegrationTest extends AbstractTestSupport {
         } catch (Exception e) {
             
         }
-        MavenRepository repository = getMavenRepository();
-        repository.deployArtifact(releaseId, kJar1, pom);
+		KieMavenRepository repository = getKieMavenRepository();
+        repository.installArtifact(releaseId, kJar1, pom);
 	}
 	
 	private List<DeploymentUnit> units = new ArrayList<DeploymentUnit>();
@@ -394,10 +389,10 @@ public class UserTaskServiceEJBIntegrationTest extends AbstractTestSupport {
     	    	
     	userTaskService.setPriority(taskId, 8);
     	
-    	Task taskInstance = userTaskService.getTask(taskId);
-    	assertNotNull(taskInstance);
-    	assertEquals(Status.Reserved, taskInstance.getTaskData().getStatus());
-    	assertEquals(8, (int)taskInstance.getPriority());
+    	task = runtimeDataService.getTaskById(taskId);
+    	assertNotNull(task);
+    	assertEquals(Status.Reserved.toString(), task.getStatus());
+    	assertEquals(8, (int)task.getPriority());
     }
     
     @Test
@@ -416,14 +411,14 @@ public class UserTaskServiceEJBIntegrationTest extends AbstractTestSupport {
     	Date origDueDate = task.getDueDate();
     	assertNull(origDueDate);
     	    	
-    	SimpleDateFormat sdf = new SimpleDateFormat("yyyy-dd-mm");
+    	SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
     	
     	userTaskService.setExpirationDate(taskId, sdf.parse("2013-12-31"));
     	
-    	Task taskInstance = userTaskService.getTask(taskId);
-    	assertNotNull(taskInstance);
-    	assertEquals(Status.Reserved, taskInstance.getTaskData().getStatus());
-    	assertEquals("2013-12-31", sdf.format(taskInstance.getTaskData().getExpirationTime()));
+    	task = runtimeDataService.getTaskById(taskId);
+    	assertNotNull(task);
+    	assertEquals(Status.Reserved.toString(), task.getStatus());
+    	assertEquals("2013-12-31", sdf.format(task.getDueDate()));
     }
     
     @Test
@@ -465,10 +460,10 @@ public class UserTaskServiceEJBIntegrationTest extends AbstractTestSupport {
     	assertEquals("Write a Document", task.getName());   	
     	userTaskService.setName(taskId, "updated");
     	
-    	Task taskInstance = userTaskService.getTask(taskId);
-    	assertNotNull(taskInstance);
-    	assertEquals(Status.Reserved, taskInstance.getTaskData().getStatus());
-    	assertEquals("updated", taskInstance.getName());
+    	task = runtimeDataService.getTaskById(taskId);
+    	assertNotNull(task);
+    	assertEquals(Status.Reserved.toString(), task.getStatus());
+    	assertEquals("updated", task.getName());
     }
     
     @Test
@@ -487,10 +482,10 @@ public class UserTaskServiceEJBIntegrationTest extends AbstractTestSupport {
     	assertEquals("Write a Document", task.getDescription());   	
     	userTaskService.setDescription(taskId, "updated");
     	
-    	Task taskInstance = userTaskService.getTask(taskId);
-    	assertNotNull(taskInstance);
-    	assertEquals(Status.Reserved, taskInstance.getTaskData().getStatus());
-    	assertEquals("updated", taskInstance.getDescription());
+    	task = runtimeDataService.getTaskById(taskId);
+    	assertNotNull(task);
+    	assertEquals(Status.Reserved.toString(), task.getStatus());
+    	assertEquals("updated", task.getDescription());
     }
     
     @Test
@@ -584,7 +579,7 @@ public class UserTaskServiceEJBIntegrationTest extends AbstractTestSupport {
     	assertNotNull(attachments);
     	assertEquals(0, attachments.size());
     	
-    	Long attId = userTaskService.addAttachment(taskId, "john", "String attachment");
+    	Long attId = userTaskService.addAttachment(taskId, "john", "my attachment", "String attachment");
     	assertNotNull(attId);
     	
     	attachments = userTaskService.getAttachmentsByTaskId(taskId);
@@ -598,6 +593,7 @@ public class UserTaskServiceEJBIntegrationTest extends AbstractTestSupport {
     	Attachment attachment = userTaskService.getAttachmentById(taskId, attId);
     	assertNotNull(attachment);
     	assertEquals("john", attachment.getAttachedBy().getId());
+    	assertEquals("my attachment", attachment.getName());
     	assertNotNull(attachment.getAttachmentContentId());
     	
     	userTaskService.deleteAttachment(taskId, attId);

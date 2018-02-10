@@ -1,4 +1,20 @@
 /*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
@@ -42,8 +58,7 @@ public class TaskAdminServiceImpl implements TaskAdminService {
 
     public List<TaskSummary> getActiveTasks() {
         HashMap<String, Object> params = persistenceContext.addParametersToMap(
-                "status", Arrays.asList(Status.InProgress),
-                "language", "en-UK");
+                "status", Arrays.asList(Status.InProgress));
 
         return persistenceContext.queryWithParametersInTransaction("TasksByStatus", params,
                 ClassUtil.<List<TaskSummary>>castClass(List.class));
@@ -52,17 +67,15 @@ public class TaskAdminServiceImpl implements TaskAdminService {
     public List<TaskSummary> getActiveTasks(Date since) {
         HashMap<String, Object> params = persistenceContext.addParametersToMap(
                 "status", Arrays.asList(Status.InProgress),
-                "language", "en-UK",
                 "since", since);
 
-        return persistenceContext.queryWithParametersInTransaction("TasksByStatus", params,
+        return persistenceContext.queryWithParametersInTransaction("TasksByStatusSince", params,
                 ClassUtil.<List<TaskSummary>>castClass(List.class));
     }
 
     public List<TaskSummary> getCompletedTasks() {
         HashMap<String, Object> params = persistenceContext.addParametersToMap(
-                "status", Arrays.asList(Status.Completed),
-                "language", "en-UK");
+                "status", Arrays.asList(Status.Completed));
 
         return persistenceContext.queryWithParametersInTransaction("TasksByStatus", params,
                 ClassUtil.<List<TaskSummary>>castClass(List.class));
@@ -71,7 +84,6 @@ public class TaskAdminServiceImpl implements TaskAdminService {
     public List<TaskSummary> getCompletedTasks(Date since) {
         HashMap<String, Object> params = persistenceContext.addParametersToMap(
                 "status", Arrays.asList(Status.Completed),
-                "language", "en-UK",
                 "since", since);
 
         return persistenceContext.queryWithParametersInTransaction("TasksByStatusSince", params,
@@ -81,7 +93,6 @@ public class TaskAdminServiceImpl implements TaskAdminService {
     public List<TaskSummary> getCompletedTasksByProcessId(Long processId) {
         HashMap<String, Object> params = persistenceContext.addParametersToMap(
                 "status", Arrays.asList(Status.Completed),
-                "language", "en-UK",
                 "processInstanceId", processId);
 
         return persistenceContext.queryWithParametersInTransaction("TasksByStatusByProcessId", params,
@@ -95,7 +106,7 @@ public class TaskAdminServiceImpl implements TaskAdminService {
             Task task = persistenceContext.findTask(taskId);
             if (task != null) {
 	            ((InternalTask) task).setArchived(true);
-	            persistenceContext.merge(task);
+	            persistenceContext.updateTask(task);
 	            archivedTasks++;
             }
         }
@@ -103,8 +114,7 @@ public class TaskAdminServiceImpl implements TaskAdminService {
     }
 
     public List<TaskSummary> getArchivedTasks() {
-        HashMap<String, Object> params = persistenceContext.addParametersToMap(
-                "language", "en-UK");
+        HashMap<String, Object> params = new HashMap<String, Object>();
         return persistenceContext.queryWithParametersInTransaction("ArchivedTasks", params,
                 ClassUtil.<List<TaskSummary>>castClass(List.class));
     }
@@ -138,7 +148,7 @@ public class TaskAdminServiceImpl implements TaskAdminService {
     }
 
     public int removeAllTasks() {
-        List<Task> tasks = persistenceContext.queryStringInTransaction("select t from TaskImpl t",
+        List<Task> tasks = persistenceContext.queryInTransaction("GetAllTasks", 
                 ClassUtil.<List<Task>>castClass(List.class));
         int count = 0;
         for (Task t : tasks) {

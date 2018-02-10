@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,10 +23,11 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.jbpm.executor.ExecutorServiceFactory;
-import org.kie.internal.executor.api.ErrorInfo;
-import org.kie.internal.executor.api.ExecutorStoreService;
-import org.kie.internal.executor.api.RequestInfo;
-import org.kie.internal.executor.api.STATUS;
+import org.jbpm.executor.impl.event.ExecutorEventSupport;
+import org.kie.api.executor.ErrorInfo;
+import org.kie.api.executor.ExecutorStoreService;
+import org.kie.api.executor.RequestInfo;
+import org.kie.api.executor.STATUS;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,9 +42,15 @@ public class InMemoryExecutorStoreService implements ExecutorStoreService {
 	private static ConcurrentNavigableMap<Long, RequestInfo> processedRequests = new ConcurrentSkipListMap<Long, RequestInfo>();
 	private static ConcurrentNavigableMap<Long, ErrorInfo> errors = new ConcurrentSkipListMap<Long, ErrorInfo>();
 
+	private ExecutorEventSupport eventSupport = new ExecutorEventSupport();
+	
 	public InMemoryExecutorStoreService(boolean active) {
 		
 	}
+	        
+    public void setEventSupport(ExecutorEventSupport eventSupport) {
+        this.eventSupport = eventSupport;
+    }
 	
 	@Override
 	public synchronized void persistRequest(RequestInfo request) {
@@ -121,7 +128,7 @@ public class InMemoryExecutorStoreService implements ExecutorStoreService {
 
 	@Override
 	public Runnable buildExecutorRunnable() {		
-		return ExecutorServiceFactory.buildRunable();
+		return ExecutorServiceFactory.buildRunable(eventSupport);
 	}
 	
 	public synchronized RequestInfo getAndLockFirst() {

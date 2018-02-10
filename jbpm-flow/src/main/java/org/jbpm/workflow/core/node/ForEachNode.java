@@ -1,11 +1,11 @@
-/**
- * Copyright 2005 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.kie.api.definition.process.Node;
-import org.drools.core.process.core.datatype.DataType;
+import org.jbpm.process.core.datatype.DataType;
 import org.jbpm.process.core.Context;
 import org.jbpm.process.core.context.AbstractContext;
 import org.jbpm.process.core.context.variable.Variable;
@@ -35,7 +35,6 @@ import org.jbpm.workflow.core.impl.ExtendedNodeImpl;
  * The node continues if all activated the subflow has been completed for each
  * of the elements in the collection.
  * 
- * @author <a href="mailto:kris_verlaenen@hotmail.com">Kris Verlaenen</a>
  */
 public class ForEachNode extends CompositeContextNode {
     
@@ -45,6 +44,7 @@ public class ForEachNode extends CompositeContextNode {
     private String outputVariableName;
     private String collectionExpression;
     private String outputCollectionExpression;
+    private String completionConditionExpression;
     private boolean waitForCompletion = true;
 
     public ForEachNode() {
@@ -242,11 +242,11 @@ public class ForEachNode extends CompositeContextNode {
         this.waitForCompletion = waitForCompletion;
     }
 
-   public class ForEachSplitNode extends ExtendedNodeImpl {
+   public static class ForEachSplitNode extends ExtendedNodeImpl {
         private static final long serialVersionUID = 510l;
     }
 
-    public class ForEachJoinNode extends ExtendedNodeImpl {
+    public static class ForEachJoinNode extends ExtendedNodeImpl {
         private static final long serialVersionUID = 510l;
     }
 
@@ -290,4 +290,13 @@ public class ForEachNode extends CompositeContextNode {
         
         return ctx;
     }
+
+	public String getCompletionConditionExpression() {
+		return completionConditionExpression;
+	}
+
+	public void setCompletionConditionExpression(
+			String completionConditionExpression) {
+		this.completionConditionExpression = completionConditionExpression;
+	}
 }

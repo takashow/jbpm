@@ -1,6 +1,20 @@
-package org.jbpm.integrationtests;
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import static org.junit.Assert.*;
+package org.jbpm.integrationtests;
 
 import java.io.Reader;
 import java.io.StringReader;
@@ -18,18 +32,20 @@ import org.jbpm.workflow.instance.node.DynamicNodeInstance;
 import org.jbpm.workflow.instance.node.DynamicUtils;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.kie.api.KieBase;
 import org.kie.api.io.ResourceType;
+import org.kie.api.logger.KieRuntimeLogger;
+import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.process.WorkItem;
 import org.kie.api.runtime.process.WorkflowProcessInstance;
-import org.kie.internal.KnowledgeBase;
 import org.kie.internal.builder.KnowledgeBuilder;
 import org.kie.internal.builder.KnowledgeBuilderFactory;
 import org.kie.internal.io.ResourceFactory;
-import org.kie.internal.logger.KnowledgeRuntimeLogger;
 import org.kie.internal.logger.KnowledgeRuntimeLoggerFactory;
-import org.kie.internal.runtime.StatefulKnowledgeSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.junit.Assert.*;
 
 public class ProcessDynamicNodeTest extends AbstractBaseTest {
     
@@ -88,12 +104,11 @@ public class ProcessDynamicNodeTest extends AbstractBaseTest {
             "  </connections>\n" +
             "</process>");
         builder.addRuleFlow(source);
-        InternalKnowledgePackage pkg = builder.getPackage();
         for (DroolsError error: builder.getErrors().getErrors()) {
             logger.error(error.toString());
         }
         
-        StatefulKnowledgeSession ksession = createKieSession(pkg);
+        KieSession ksession = createKieSession(builder.getPackages());
         
         List<String> list = new ArrayList<String>();
         ksession.setGlobal("list", list);
@@ -154,12 +169,11 @@ public class ProcessDynamicNodeTest extends AbstractBaseTest {
             "  </connections>\n" +
             "</process>");
         builder.addRuleFlow(source);
-        InternalKnowledgePackage pkg = builder.getPackage();
         for (DroolsError error: builder.getErrors().getErrors()) {
             logger.error(error.toString());
         }
         
-        StatefulKnowledgeSession ksession = createKieSession(pkg);
+        KieSession ksession = createKieSession(builder.getPackages());
         
         List<String> list = new ArrayList<String>();
         ksession.setGlobal("list", list);
@@ -210,9 +224,9 @@ public class ProcessDynamicNodeTest extends AbstractBaseTest {
                 "</process>");
     	KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
 		kbuilder.add(ResourceFactory.newReaderResource(source), ResourceType.DRF);
-		KnowledgeBase kbase = kbuilder.newKnowledgeBase();
-		StatefulKnowledgeSession ksession = kbase.newStatefulKnowledgeSession();
-		KnowledgeRuntimeLogger logger = KnowledgeRuntimeLoggerFactory.newFileLogger(ksession, "test");
+		KieBase kbase = kbuilder.newKieBase();
+		KieSession ksession = kbase.newKieSession();
+		KieRuntimeLogger logger = KnowledgeRuntimeLoggerFactory.newFileLogger(ksession, "test");
 		TestWorkItemHandler handler = new TestWorkItemHandler();
 		ksession.getWorkItemManager().registerWorkItemHandler("Human Task", handler);
 		// start a new process instance
@@ -272,7 +286,7 @@ public class ProcessDynamicNodeTest extends AbstractBaseTest {
                 "  <header>\n" +
         		"    <variables>\n" +
         		"      <variable name=\"x\" >\n" +
-        		"        <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+        		"        <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
         		"        <value>SomeText</value>\n" +
         		"      </variable>\n" +
         		"    </variables>\n" +
@@ -298,9 +312,9 @@ public class ProcessDynamicNodeTest extends AbstractBaseTest {
     	KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
 		kbuilder.add(ResourceFactory.newReaderResource(source), ResourceType.DRF);
 		kbuilder.add(ResourceFactory.newReaderResource(source2), ResourceType.DRF);
-		KnowledgeBase kbase = kbuilder.newKnowledgeBase();
-		StatefulKnowledgeSession ksession = kbase.newStatefulKnowledgeSession();
-		KnowledgeRuntimeLogger logger = KnowledgeRuntimeLoggerFactory.newFileLogger(ksession, "test");
+		KieBase kbase = kbuilder.newKieBase();
+		KieSession ksession = kbase.newKieSession();
+		KieRuntimeLogger logger = KnowledgeRuntimeLoggerFactory.newFileLogger(ksession, "test");
 		TestWorkItemHandler handler = new TestWorkItemHandler();
 		ksession.getWorkItemManager().registerWorkItemHandler("Human Task", handler);
 		// start a new process instance

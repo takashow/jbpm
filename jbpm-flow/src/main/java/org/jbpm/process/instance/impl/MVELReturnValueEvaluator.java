@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,16 +16,11 @@
 
 package org.jbpm.process.instance.impl;
 
-import java.io.Externalizable;
-import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
-import java.io.Serializable;
-
 import org.drools.core.base.mvel.MVELCompilationUnit;
 import org.drools.core.base.mvel.MVELCompileable;
 import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.definitions.impl.KnowledgePackageImpl;
+import org.drools.core.definitions.rule.impl.RuleImpl;
 import org.drools.core.impl.StatefulKnowledgeSessionImpl;
 import org.drools.core.impl.StatelessKnowledgeSessionImpl;
 import org.drools.core.rule.MVELDialectRuntimeData;
@@ -36,6 +31,12 @@ import org.kie.api.runtime.process.ProcessContext;
 import org.kie.internal.runtime.StatefulKnowledgeSession;
 import org.kie.internal.runtime.StatelessKnowledgeSession;
 import org.mvel2.integration.VariableResolverFactory;
+
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.Serializable;
 
 public class MVELReturnValueEvaluator
     implements
@@ -73,6 +74,10 @@ public class MVELReturnValueEvaluator
         expr = unit.getCompiledExpression( data );
     }
 
+    public void compile(MVELDialectRuntimeData data, RuleImpl rule) {
+        expr = unit.getCompiledExpression( data );
+    }
+
     public String getDialect() {
         return this.id;
     }
@@ -106,7 +111,7 @@ public class MVELReturnValueEvaluator
 
         // do we have any functions for this namespace?
         KiePackage pkg = context.getKieRuntime().getKieBase().getKiePackage("MAIN");
-        if ( pkg != null && pkg instanceof KnowledgePackageImpl) {
+        if ( pkg instanceof KnowledgePackageImpl) {
             MVELDialectRuntimeData data = ( MVELDialectRuntimeData ) ((KnowledgePackageImpl) pkg).getDialectRuntimeRegistry().getDialectData( id );
             factory.setNextFactory( data.getFunctionFactory() );
         }

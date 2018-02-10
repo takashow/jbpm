@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,10 +16,6 @@
 
 package org.jbpm.services.ejb.test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.kie.scanner.MavenRepository.getMavenRepository;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -27,7 +23,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-
 import javax.ejb.EJB;
 
 import org.drools.compiler.kie.builder.impl.InternalKieModule;
@@ -37,6 +32,7 @@ import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.jbpm.kie.services.impl.KModuleDeploymentUnit;
 import org.jbpm.services.api.model.DeploymentUnit;
+import org.jbpm.services.api.model.ProcessDefinition;
 import org.jbpm.services.api.model.UserTaskDefinition;
 import org.jbpm.services.ejb.api.DefinitionServiceEJBLocal;
 import org.jbpm.services.ejb.api.DeploymentServiceEJBLocal;
@@ -45,7 +41,10 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.kie.api.KieServices;
 import org.kie.api.builder.ReleaseId;
-import org.kie.scanner.MavenRepository;
+import org.kie.scanner.KieMavenRepository;
+
+import static org.junit.Assert.*;
+import static org.kie.scanner.KieMavenRepository.getKieMavenRepository;
 
 @RunWith(Arquillian.class)
 public class DefinitionServiceEJBIntegrationTest extends AbstractTestSupport {
@@ -87,8 +86,8 @@ public class DefinitionServiceEJBIntegrationTest extends AbstractTestSupport {
         } catch (Exception e) {
             
         }
-        MavenRepository repository = getMavenRepository();
-        repository.deployArtifact(releaseId, kJar1, pom);
+        KieMavenRepository repository = getKieMavenRepository();
+        repository.installArtifact(releaseId, kJar1, pom);
 	}
 	
 	private List<DeploymentUnit> units = new ArrayList<DeploymentUnit>();
@@ -168,10 +167,18 @@ public class DefinitionServiceEJBIntegrationTest extends AbstractTestSupport {
         Map<String, String> taskInputMappings = bpmn2Service.getTaskInputMappings(deploymentUnit.getIdentifier(), processId, "HR Interview" );
         
         assertEquals(4, taskInputMappings.keySet().size());
+        assertEquals("java.lang.String", taskInputMappings.get("TaskName"));
+        assertEquals("Object", taskInputMappings.get("GroupId"));
+        assertEquals("Object", taskInputMappings.get("Comment"));
+        assertEquals("String", taskInputMappings.get("in_name"));
         
         Map<String, String> taskOutputMappings = bpmn2Service.getTaskOutputMappings(deploymentUnit.getIdentifier(), processId, "HR Interview" );
         
         assertEquals(4, taskOutputMappings.keySet().size());
+        assertEquals("String", taskOutputMappings.get("out_name"));
+        assertEquals("Integer", taskOutputMappings.get("out_age"));
+        assertEquals("String", taskOutputMappings.get("out_mail"));
+        assertEquals("Integer", taskOutputMappings.get("out_score"));
         
         Map<String, Collection<String>> associatedEntities = bpmn2Service.getAssociatedEntities(deploymentUnit.getIdentifier(), processId);
         
@@ -218,5 +225,34 @@ public class DefinitionServiceEJBIntegrationTest extends AbstractTestSupport {
         Map<String, String> processData = bpmn2Service.getProcessVariables(deploymentUnit.getIdentifier(), processId);
         assertNotNull(processData);
         
+    }
+    
+    @Test
+    public void testHumanTaskProcessBeforeAndAfterUndeploy() throws IOException {
+      
+        assertNotNull(deploymentService);
+        
+        DeploymentUnit deploymentUnit = new KModuleDeploymentUnit(GROUP_ID, ARTIFACT_ID, VERSION);
+        
+        deploymentService.deploy(deploymentUnit);
+        units.add(deploymentUnit);
+      
+        String processId = "org.jbpm.writedocument";
+        
+        ProcessDefinition procDef = bpmn2Service.getProcessDefinition(deploymentUnit.getIdentifier(), processId);
+        assertNotNull(procDef);
+        
+        assertEquals(procDef.getId(), "org.jbpm.writedocument");
+        assertEquals(procDef.getName(), "humanTaskSample");
+        assertEquals(procDef.getKnowledgeType(), "PROCESS");
+        assertEquals(procDef.getPackageName(), "defaultPackage");
+        assertEquals(procDef.getType(), "RuleFlow");
+        assertEquals(procDef.getVersion(), "1");
+        
+        // now let's undeploy the unit
+        deploymentService.undeploy(deploymentUnit);
+        
+        procDef = bpmn2Service.getProcessDefinition(deploymentUnit.getIdentifier(), processId);
+        assertNull(procDef);
     }
 }

@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,9 +18,10 @@ package org.jbpm.ruleflow.core;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
-import org.drools.core.process.core.datatype.DataType;
+import org.jbpm.process.core.datatype.DataType;
 import org.jbpm.process.core.context.exception.ActionExceptionHandler;
 import org.jbpm.process.core.context.exception.ExceptionHandler;
 import org.jbpm.process.core.context.swimlane.Swimlane;
@@ -54,6 +55,11 @@ public class RuleFlowProcessFactory extends RuleFlowNodeContainerFactory {
         return this;
     }
 
+    public RuleFlowProcessFactory dynamic(boolean dynamic) {
+        getRuleFlowProcess().setDynamic(dynamic);
+        return this;
+    }
+
     public RuleFlowProcessFactory version(String version) {
     	getRuleFlowProcess().setVersion(version);
         return this;
@@ -65,7 +71,7 @@ public class RuleFlowProcessFactory extends RuleFlowNodeContainerFactory {
     }
 
     public RuleFlowProcessFactory imports(String... imports) {
-    	getRuleFlowProcess().setImports(Arrays.asList(imports));
+    	getRuleFlowProcess().setImports(new HashSet<String>(Arrays.asList(imports)));
         return this;
     }
     
@@ -94,12 +100,23 @@ public class RuleFlowProcessFactory extends RuleFlowNodeContainerFactory {
     }
     
     public RuleFlowProcessFactory variable(String name, DataType type, Object value) {
+    	return variable(name, type, value, null, null);
+    }
+    
+    public RuleFlowProcessFactory variable(String name, DataType type, String metaDataName, Object metaDataValue) {
+    	return variable(name, type, null, metaDataName, metaDataValue);
+    }
+    
+    public RuleFlowProcessFactory variable(String name, DataType type, Object value, String metaDataName, Object metaDataValue) {
     	Variable variable = new Variable();
     	variable.setName(name);
     	variable.setType(type);
     	variable.setValue(value);
+    	if (metaDataName != null && metaDataValue != null) {
+    		variable.setMetaData(metaDataName, metaDataValue);
+    	}
     	getRuleFlowProcess().getVariableScope().getVariables().add(variable);
-        return this;
+    	return this;
     }
     
     public RuleFlowProcessFactory swimlane(String name) {

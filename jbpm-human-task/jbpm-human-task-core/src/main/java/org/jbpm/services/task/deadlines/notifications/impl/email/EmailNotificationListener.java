@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -60,19 +60,14 @@ public class EmailNotificationListener implements NotificationListener {
     
     private static final Logger logger = LoggerFactory.getLogger(EmailNotificationListener.class);
 
-    private UserInfo userInfo;
-
     private Session mailSession = EmailSessionProducer.produceSession();
     
-    public EmailNotificationListener(UserInfo userInfo) {
-    	this.userInfo = userInfo;
-    }
     
     @Override
-    public void onNotification(NotificationEvent event) {
-
+    public void onNotification(NotificationEvent event, UserInfo userInfo) {
+        
         if (userInfo == null || mailSession == null) {
-            logger.error("Cannot proceed with notifications as not all requirements are meet - mail session or userinfo is not available.");
+            logger.info("Missing mail session or userinfo - skipping email notification listener processing");
             return;
         }
         
@@ -86,17 +81,17 @@ public class EmailNotificationListener implements NotificationListener {
             Map<String, List<User>> users = new HashMap<String, List<User>>();
             for (OrganizationalEntity entity : notification.getBusinessAdministrators()) {
                 if (entity instanceof Group) {
-                    buildMapByLanguage(users, (Group) entity);
+                    buildMapByLanguage(users, (Group) entity, userInfo);
                 } else {
-                    buildMapByLanguage(users, (User) entity);
+                    buildMapByLanguage(users, (User) entity, userInfo);
                 }
             }
 
             for (OrganizationalEntity entity : notification.getRecipients()) {
                 if (entity instanceof Group) {
-                    buildMapByLanguage(users, (Group) entity);
+                    buildMapByLanguage(users, (Group) entity, userInfo);
                 } else {
-                    buildMapByLanguage(users, (User) entity);
+                    buildMapByLanguage(users, (User) entity, userInfo);
                 }
             }
 
@@ -188,13 +183,14 @@ public class EmailNotificationListener implements NotificationListener {
                     
                     msg.setSubject( subject );
                     
-                    msg.setHeader( "X-Mailer", "jbpm huamn task service" );
+                    msg.setHeader( "X-Mailer", "jbpm human task service" );
                     msg.setSentDate( new Date() );
 
                     Transport.send(msg);
 
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    logger.error("Unable to send email notification due to {}", e.getMessage());
+                    logger.debug("Stacktrace:", e);
                 }
             }
         }
@@ -221,21 +217,21 @@ public class EmailNotificationListener implements NotificationListener {
         }
     }
     
-    protected void buildMapByLanguage(Map<String, List<User>> map, Group group) {
+    protected void buildMapByLanguage(Map<String, List<User>> map, Group group, UserInfo userInfo) {
     	Iterator<OrganizationalEntity> it = userInfo.getMembersForGroup(group);
     	if (it != null) {
 	    	while (it.hasNext()) {
 	            OrganizationalEntity entity = it.next();
 	            if (entity instanceof Group) {
-	                buildMapByLanguage(map, (Group) entity);
+	                buildMapByLanguage(map, (Group) entity, userInfo);
 	            } else {
-	                buildMapByLanguage(map, (User) entity);
+	                buildMapByLanguage(map, (User) entity, userInfo);
 	            }
 	        }
     	}
     }
 
-    protected void buildMapByLanguage(Map<String, List<User>> map, User user) {
+    protected void buildMapByLanguage(Map<String, List<User>> map, User user, UserInfo userInfo) {
         String language = userInfo.getLanguageForEntity(user);
         List<User> list = map.get(language);
         if (list == null) {

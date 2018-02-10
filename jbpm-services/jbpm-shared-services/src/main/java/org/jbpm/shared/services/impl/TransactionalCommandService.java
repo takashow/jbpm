@@ -1,26 +1,49 @@
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jbpm.shared.services.impl;
 
-import javax.persistence.EntityManagerFactory;
-
-import org.drools.core.command.CommandService;
-import org.drools.core.command.impl.GenericCommand;
-import org.drools.persistence.jta.JtaTransactionManager;
+import org.drools.core.command.impl.ExecutableCommand;
+import org.drools.persistence.api.TransactionManager;
+import org.drools.persistence.api.TransactionManagerFactory;
 import org.kie.api.command.Command;
-import org.kie.internal.command.Context;
+import org.kie.api.runtime.CommandExecutor;
+import org.kie.api.runtime.Context;
+import org.kie.api.runtime.EnvironmentName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class TransactionalCommandService implements CommandService {
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
+
+public class TransactionalCommandService implements CommandExecutor {
 	
 	private static final Logger logger = LoggerFactory.getLogger(TransactionalCommandService.class);
 	
 	private EntityManagerFactory emf;	
     private Context context;
-    private JtaTransactionManager txm;
+    private TransactionManager txm;
     
+    public TransactionalCommandService(EntityManagerFactory emf, TransactionManager txm) {
+        this.emf = emf;
+        this.txm = txm;
+    }
+
 	public TransactionalCommandService(EntityManagerFactory emf) {
-		this.emf = emf;
-		this.txm = new JtaTransactionManager(null, null, null);
+	    this(emf, TransactionManagerFactory.get().newTransactionManager());
 	}
 
     public Context getContext() {
@@ -33,15 +56,22 @@ public class TransactionalCommandService implements CommandService {
 
 	public <T> T execute(Command<T> command) {
     	boolean transactionOwner = false;
+    	boolean emOwner = false;
 		T result = null;
 		
         try {
             transactionOwner = txm.begin();
-            JpaPersistenceContext context = new JpaPersistenceContext(emf.createEntityManager());
+            EntityManager em = getEntityManager(command);
+            
+            if (em == null) {
+                em = emf.createEntityManager();
+                emOwner = true;
+            }
+            JpaPersistenceContext context = new JpaPersistenceContext(em);
             context.joinTransaction();
-            result = ((GenericCommand<T>)command).execute(context);
+            result = ((ExecutableCommand<T>)command).execute( context );
             txm.commit( transactionOwner );
-            context.close(transactionOwner);
+            context.close(transactionOwner, emOwner);
             return result;
 
         } catch ( RuntimeException re ) {
@@ -64,4 +94,15 @@ public class TransactionalCommandService implements CommandService {
 		}
 	}
 
+	protected EntityManager getEntityManager(Command<?> command) {
+	    EntityManager em = (EntityManager) txm.getResource(EnvironmentName.CMD_SCOPED_ENTITY_MANAGER);
+	    
+	    if (em != null && em.isOpen() && em.getEntityManagerFactory().equals(emf)) {
+	        
+	        return em;
+	    }
+	    
+	    return null; 
+	}
+	
 }

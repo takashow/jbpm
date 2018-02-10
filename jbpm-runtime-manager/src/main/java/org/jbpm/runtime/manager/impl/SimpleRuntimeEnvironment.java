@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 JBoss Inc
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,13 +25,16 @@ import java.util.Properties;
 
 import javax.persistence.EntityManagerFactory;
 
+import org.drools.core.builder.conf.impl.DecisionTableConfigurationImpl;
 import org.drools.core.impl.EnvironmentFactory;
 import org.jbpm.marshalling.impl.ProcessInstanceResolverStrategy;
 import org.jbpm.process.core.timer.GlobalSchedulerService;
 import org.jbpm.runtime.manager.api.SchedulerProvider;
 import org.jbpm.runtime.manager.impl.mapper.InMemoryMapper;
 import org.kie.api.KieBase;
+import org.kie.api.KieServices;
 import org.kie.api.io.Resource;
+import org.kie.api.io.ResourceConfiguration;
 import org.kie.api.io.ResourceType;
 import org.kie.api.marshalling.ObjectMarshallingStrategy;
 import org.kie.api.runtime.Environment;
@@ -39,10 +42,12 @@ import org.kie.api.runtime.EnvironmentName;
 import org.kie.api.runtime.KieSessionConfiguration;
 import org.kie.api.runtime.manager.RegisterableItemsFactory;
 import org.kie.api.task.UserGroupCallback;
-import org.kie.internal.KnowledgeBaseFactory;
+import org.kie.internal.builder.DecisionTableConfiguration;
+import org.kie.internal.builder.DecisionTableInputType;
 import org.kie.internal.builder.KnowledgeBuilder;
 import org.kie.internal.builder.KnowledgeBuilderError;
 import org.kie.internal.builder.KnowledgeBuilderFactory;
+import org.kie.internal.io.ResourceTypeImpl;
 import org.kie.internal.runtime.conf.ForceEagerActivationOption;
 import org.kie.internal.runtime.manager.Mapper;
 import org.kie.internal.runtime.manager.RuntimeEnvironment;
@@ -106,8 +111,58 @@ public class SimpleRuntimeEnvironment implements RuntimeEnvironment, SchedulerPr
      * @param type type of the asset
      */
     public void addAsset(Resource resource, ResourceType type) {
-        this.kbuilder.add(resource, type);
-        if (this.kbuilder.hasErrors()) {            
+        /**
+         * The code below (CSV/XLS) was added because of timelines related to switchyard/fuse.
+         *  
+         * However, it is an ugly hack: As soon as is possible, the code below should be removed or refactored. 
+         * - an "addAsset(Resource, ResourceType, ResourceConfiguration)" method should be added to this implementation
+         * - or the kbuilder code should be refactored so that there are two ResourceTypes: CSV and XLS
+         * 
+         * (refactoring the kbuilder code is probably a better idea.)
+         */
+        boolean replaced = false;
+        if (resource.getSourcePath() != null ) { 
+            String path = resource.getSourcePath();
+          
+            String typeStr = null;
+            if( path.toLowerCase().endsWith(".csv") ) { 
+                typeStr = DecisionTableInputType.CSV.toString();
+            } else if( path.toLowerCase().endsWith(".xls") ) { 
+                typeStr = DecisionTableInputType.XLS.toString();
+            } 
+           
+            if( typeStr != null ) { 
+                String worksheetName = null;
+                boolean replaceConfig = true;
+                ResourceConfiguration config = resource.getConfiguration();
+                if( config != null && config instanceof DecisionTableConfiguration ) { 
+                    DecisionTableInputType realType = DecisionTableInputType.valueOf(typeStr);
+                    if( ((DecisionTableConfiguration) config).getInputType().equals(realType) ) { 
+                       replaceConfig = false;
+                    } else { 
+                        worksheetName = ((DecisionTableConfiguration) config).getWorksheetName();
+                    }
+                }
+
+                if( replaceConfig ) { 
+                    Properties prop = new Properties();
+                    prop.setProperty(ResourceTypeImpl.KIE_RESOURCE_CONF_CLASS, DecisionTableConfigurationImpl.class.getName());
+                    prop.setProperty(DecisionTableConfigurationImpl.DROOLS_DT_TYPE, typeStr);
+                    if( worksheetName != null ) { 
+                        prop.setProperty(DecisionTableConfigurationImpl.DROOLS_DT_WORKSHEET, worksheetName);
+                    }
+                    ResourceConfiguration conf = ResourceTypeImpl.fromProperties(prop);
+                    this.kbuilder.add(resource, type, conf);
+                    replaced = true;
+                }
+            } 
+        } 
+        
+        if( ! replaced ) { 
+            this.kbuilder.add(resource, type);
+        }
+
+        if (this.kbuilder.hasErrors()) {
             StringBuffer errorMessage = new StringBuffer();
             for( KnowledgeBuilderError error : kbuilder.getErrors()) {
                 errorMessage.append(error.getMessage() + ",");
@@ -143,7 +198,7 @@ public class SimpleRuntimeEnvironment implements RuntimeEnvironment, SchedulerPr
     @Override
     public KieBase getKieBase() {
         if (this.kbase == null) {
-            this.kbase = kbuilder.newKnowledgeBase();
+            this.kbase = kbuilder.newKieBase();
         }
         return this.kbase;
     }
@@ -162,9 +217,9 @@ public class SimpleRuntimeEnvironment implements RuntimeEnvironment, SchedulerPr
     public KieSessionConfiguration getConfiguration() {
     	KieSessionConfiguration config = null;
     	if (this.sessionConfigProperties != null) {
-    		config = KnowledgeBaseFactory.newKnowledgeSessionConfiguration(this.sessionConfigProperties);
+    		config = KieServices.Factory.get().newKieSessionConfiguration(this.sessionConfigProperties, classLoader);
         } else {
-        	config = KnowledgeBaseFactory.newKnowledgeSessionConfiguration();
+        	config = KieServices.Factory.get().newKieSessionConfiguration(null, classLoader);
         }
     	// add special option to fire activations marked as eager directly
     	config.setOption(ForceEagerActivationOption.YES);
@@ -209,6 +264,8 @@ public class SimpleRuntimeEnvironment implements RuntimeEnvironment, SchedulerPr
         addIfPresent(EnvironmentName.TRANSACTION, copy);
         addIfPresent(EnvironmentName.USE_LOCAL_TRANSACTIONS, copy);
         addIfPresent(EnvironmentName.USE_PESSIMISTIC_LOCKING, copy);        
+        addIfPresent(EnvironmentName.EXEC_ERROR_MANAGER, copy);
+        addIfPresent(EnvironmentName.DEPLOYMENT_ID, copy);
         
         if (usePersistence()) {
             ObjectMarshallingStrategy[] strategies = (ObjectMarshallingStrategy[]) copy.get(EnvironmentName.OBJECT_MARSHALLING_STRATEGIES);        

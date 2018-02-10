@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,16 +18,13 @@ package org.jbpm.services.task.wih;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.jbpm.services.task.lifecycle.listeners.TaskLifeCycleEventListener;
-import org.jbpm.services.task.utils.ContentMarshallerHelper;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.manager.RuntimeEngine;
 import org.kie.api.runtime.manager.RuntimeManager;
 import org.kie.api.task.TaskEvent;
-import org.kie.api.task.model.Content;
+import org.kie.api.task.TaskLifeCycleEventListener;
 import org.kie.api.task.model.Status;
 import org.kie.api.task.model.Task;
-import org.kie.internal.runtime.manager.InternalRuntimeManager;
 import org.kie.internal.runtime.manager.RuntimeManagerRegistry;
 import org.kie.internal.runtime.manager.context.ProcessInstanceIdContext;
 import org.slf4j.Logger;
@@ -53,29 +50,16 @@ public class ExternalTaskEventListener implements TaskLifeCycleEventListener {
         if (task.getTaskData().getStatus() == Status.Completed) {
             String userId = task.getTaskData().getActualOwner().getId();
             Map<String, Object> results = new HashMap<String, Object>();
-            results.put("ActorId", userId);
-            long contentId = task.getTaskData().getOutputContentId();
-            if (contentId != -1) {
-                Content content = runtime.getTaskService().getContentById(contentId);
-                ClassLoader cl = null;
-                if (manager instanceof InternalRuntimeManager) {
-                    cl = ((InternalRuntimeManager)manager).getEnvironment().getClassLoader();
-                }
-                Object result = ContentMarshallerHelper.unmarshall(content.getContent(), session.getEnvironment(), cl);
-                results.put("Result", result);
-                if (result instanceof Map) {
-                    Map<?, ?> map = (Map<?, ?>) result;
-                    for (Map.Entry<?, ?> entry : map.entrySet()) {
-                        if (entry.getKey() instanceof String) {
-                            results.put((String) entry.getKey(), entry.getValue());
-                        }
-                    }
-                }
-
-                session.getWorkItemManager().completeWorkItem(task.getTaskData().getWorkItemId(), results);
-            } else {
-                session.getWorkItemManager().completeWorkItem(workItemId, results);
+            
+            Map<String, Object> taskOutcome = task.getTaskData().getTaskOutputVariables();
+            if (taskOutcome != null) {
+                results.putAll(taskOutcome);
+//                results.put("Result", taskOutcome);
             }
+
+        	results.put("ActorId", userId);
+            session.getWorkItemManager().completeWorkItem(workItemId, results);
+            
         } else {
             session.getWorkItemManager().abortWorkItem(workItemId);
         }
@@ -112,7 +96,11 @@ public class ExternalTaskEventListener implements TaskLifeCycleEventListener {
         if (processInstanceId <= 0) {
             return;
         }
-        RuntimeEngine runtime = getManager(task).getRuntimeEngine(ProcessInstanceIdContext.get(processInstanceId));
+        RuntimeManager manager = getManager(task);
+        if (manager == null) {
+            throw new RuntimeException("No RuntimeManager registered with identifier: " + task.getTaskData().getDeploymentId());
+        }
+        RuntimeEngine runtime = manager.getRuntimeEngine(ProcessInstanceIdContext.get(processInstanceId));
         KieSession session = runtime.getKieSession();
         if (session != null) {
             logger.debug(">> I've recieved an event for a known session (" + task.getTaskData().getProcessSessionId()+")");
@@ -287,5 +275,26 @@ public class ExternalTaskEventListener implements TaskLifeCycleEventListener {
 	@Override
 	public void afterTaskNominatedEvent(TaskEvent event) {
 
+	}
+	
+	@Override
+	public boolean equals(Object obj) {
+		if ( this == obj ) 
+			return true;
+        if ( obj == null ) 
+        	return false;
+        if ( (obj instanceof ExternalTaskEventListener) ) 
+        	return true;
+        
+        return false;
+	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+        int result = 1;
+        result = prime * result + this.getClass().getName().hashCode();
+        
+        return result;
 	}
 }

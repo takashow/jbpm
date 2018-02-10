@@ -1,3 +1,19 @@
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jbpm.test;
 
 import java.io.File;
@@ -12,18 +28,16 @@ import javax.persistence.Persistence;
 import org.h2.tools.Server;
 import org.jbpm.services.task.HumanTaskConfigurator;
 import org.jbpm.services.task.identity.JBossUserGroupCallbackImpl;
+import org.jbpm.test.util.PoolingDataSource;
+import org.kie.api.KieBase;
 import org.kie.api.runtime.EnvironmentName;
 import org.kie.api.runtime.manager.RuntimeEnvironmentBuilder;
 import org.kie.api.runtime.manager.RuntimeManager;
 import org.kie.api.runtime.manager.RuntimeManagerFactory;
 import org.kie.api.task.TaskService;
 import org.kie.api.task.UserGroupCallback;
-import org.kie.internal.KnowledgeBase;
 import org.kie.internal.runtime.StatefulKnowledgeSession;
 import org.kie.internal.runtime.manager.context.EmptyContext;
-
-import bitronix.tm.TransactionManagerServices;
-import bitronix.tm.resource.jdbc.PoolingDataSource;
 
 /**
  * Since version 6.0 this class is deprecated. Instead <code>RuntimeManager</code> should be used directly.
@@ -80,9 +94,7 @@ public final class JBPMHelper {
         // create data source
         PoolingDataSource pds = new PoolingDataSource();
         pds.setUniqueName(properties.getProperty("persistence.datasource.name", "jdbc/jbpm-ds"));
-        pds.setClassName("bitronix.tm.resource.jdbc.lrc.LrcXADataSource");
-        pds.setMaxPoolSize(5);
-        pds.setAllowLocalTransactions(true);
+        pds.setClassName("org.h2.jdbcx.JdbcDataSource");
         pds.getDriverProperties().put("user", properties.getProperty("persistence.datasource.user", "sa"));
         pds.getDriverProperties().put("password", properties.getProperty("persistence.datasource.password", ""));
         pds.getDriverProperties().put("url", properties.getProperty("persistence.datasource.url", "jdbc:h2:tcp://localhost/~/jbpm-db;MVCC=TRUE"));
@@ -114,12 +126,12 @@ public final class JBPMHelper {
     }
 
     @Deprecated
-    public static StatefulKnowledgeSession newStatefulKnowledgeSession(KnowledgeBase kbase) {
+    public static StatefulKnowledgeSession newStatefulKnowledgeSession(KieBase kbase) {
         return loadStatefulKnowledgeSession(kbase, -1);
     }
 
     @Deprecated
-    public static StatefulKnowledgeSession loadStatefulKnowledgeSession(KnowledgeBase kbase, int sessionId) {
+    public static StatefulKnowledgeSession loadStatefulKnowledgeSession(KieBase kbase, int sessionId) {
         Properties properties = getProperties();
         String persistenceEnabled = properties.getProperty("persistence.enabled", "false");
         RuntimeEnvironmentBuilder builder = null;
@@ -133,7 +145,7 @@ public final class JBPMHelper {
             builder = RuntimeEnvironmentBuilder.Factory.get()
         			.newDefaultBuilder()
                 .entityManagerFactory(emf)                
-                .addEnvironmentEntry(EnvironmentName.TRANSACTION_MANAGER, TransactionManagerServices.getTransactionManager());
+                .addEnvironmentEntry(EnvironmentName.TRANSACTION_MANAGER, com.arjuna.ats.jta.TransactionManager.transactionManager());
 
 
         } else {            

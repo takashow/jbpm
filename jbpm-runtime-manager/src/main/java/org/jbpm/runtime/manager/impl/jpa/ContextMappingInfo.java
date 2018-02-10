@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 JBoss Inc
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -45,11 +45,16 @@ import javax.persistence.Version;
                 @NamedQuery(name="FindContextMapingByKSessionId", 
                 query="from ContextMappingInfo where ksessionId = :ksessionId"
                 		+ " and ownerId = :ownerId"),
-    @NamedQuery(name="FindKSessionToInit", 
+                @NamedQuery(name="FindKSessionToInit", 
                 query="select cmInfo.ksessionId from ContextMappingInfo cmInfo, "
                 		+ "ProcessInstanceInfo processInstanceInfo join processInstanceInfo.eventTypes eventTypes"
-                		+ " where eventTypes = 'timer' and cmInfo.contextId = concat(processInstanceInfo.processInstanceId, '')"
-                		+ " and cmInfo.ownerId = :ownerId")})
+                		+ " where eventTypes = 'timer' and cmInfo.contextId = cast(processInstanceInfo.processInstanceId as string)"
+                		+ " and cmInfo.ownerId = :ownerId"),
+        		@NamedQuery(name="FindProcessInstanceWaitingForEvent", 
+                query="select cmInfo.contextId from ContextMappingInfo cmInfo, "
+                        + "ProcessInstanceInfo processInstanceInfo join processInstanceInfo.eventTypes eventTypes"
+                        + " where eventTypes = :eventType and cmInfo.contextId = cast(processInstanceInfo.processInstanceId as string)"
+                        + " and cmInfo.ownerId = :ownerId")})
 public class ContextMappingInfo implements Serializable {
 
     private static final long serialVersionUID = 533985957655465840L;
@@ -65,7 +70,7 @@ public class ContextMappingInfo implements Serializable {
     @Column(name="CONTEXT_ID", nullable=false)
     private String contextId;
     @Column(name="KSESSION_ID", nullable=false)
-    private Integer ksessionId;
+    private Long ksessionId;
     @Column(name="OWNER_ID")
     private String ownerId;
 
@@ -73,7 +78,7 @@ public class ContextMappingInfo implements Serializable {
         
     }
 
-    public ContextMappingInfo(String contextId, Integer ksessionId, String ownerId) {
+    public ContextMappingInfo(String contextId, Long ksessionId, String ownerId) {
         this.contextId = contextId;
         this.ksessionId = ksessionId;
         this.ownerId = ownerId;
@@ -103,11 +108,11 @@ public class ContextMappingInfo implements Serializable {
         this.contextId = contextId;
     }
 
-    public Integer getKsessionId() {
+    public Long getKsessionId() {
         return ksessionId;
     }
 
-    public void setKsessionId(Integer ksessionId) {
+    public void setKsessionId(Long ksessionId) {
         this.ksessionId = ksessionId;
     }
         

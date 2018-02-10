@@ -1,16 +1,24 @@
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jbpm.process.instance;
 
-import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import org.drools.core.SessionConfiguration;
-import org.drools.core.command.impl.GenericCommand;
-import org.drools.core.command.impl.KnowledgeCommandContext;
+import org.drools.core.command.impl.ExecutableCommand;
+import org.drools.core.command.impl.RegistryContext;
 import org.drools.core.common.InternalKnowledgeRuntime;
 import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.common.WorkingMemoryAction;
@@ -20,11 +28,12 @@ import org.drools.core.impl.InternalKnowledgeBase;
 import org.drools.core.marshalling.impl.MarshallerReaderContext;
 import org.drools.core.marshalling.impl.MarshallerWriteContext;
 import org.drools.core.marshalling.impl.ProtobufMessages.ActionQueue.Action;
-import org.drools.core.time.AcceptsTimerJobFactoryManager;
+import org.drools.core.phreak.PropagationEntry;
 import org.drools.core.time.TimeUtils;
+import org.drools.core.time.TimerService;
+import org.drools.core.time.impl.CommandServiceTimerJobFactoryManager;
 import org.drools.core.time.impl.CronExpression;
-import org.drools.core.time.impl.DefaultTimerJobFactoryManager;
-import org.drools.core.time.impl.TrackableTimeJobFactoryManager;
+import org.drools.core.time.impl.ThreadSafeTrackableTimeJobFactoryManager;
 import org.jbpm.process.core.event.EventFilter;
 import org.jbpm.process.core.event.EventTransformer;
 import org.jbpm.process.core.event.EventTypeFilter;
@@ -42,24 +51,29 @@ import org.jbpm.workflow.core.node.Trigger;
 import org.kie.api.KieBase;
 import org.kie.api.definition.process.Node;
 import org.kie.api.definition.process.Process;
-import org.kie.api.event.kiebase.AfterProcessAddedEvent;
-import org.kie.api.event.kiebase.AfterProcessRemovedEvent;
-import org.kie.api.event.kiebase.DefaultKieBaseEventListener;
 import org.kie.api.event.process.ProcessEventListener;
 import org.kie.api.event.rule.DefaultAgendaEventListener;
 import org.kie.api.event.rule.MatchCreatedEvent;
 import org.kie.api.event.rule.RuleFlowGroupDeactivatedEvent;
+import org.kie.api.runtime.Context;
+import org.kie.api.runtime.EnvironmentName;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.manager.RuntimeEngine;
 import org.kie.api.runtime.manager.RuntimeManager;
 import org.kie.api.runtime.process.EventListener;
 import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.api.runtime.process.WorkItemManager;
-import org.kie.internal.command.Context;
 import org.kie.internal.process.CorrelationKey;
 import org.kie.internal.runtime.StatefulKnowledgeSession;
+import org.kie.internal.runtime.manager.context.CaseContext;
 import org.kie.internal.runtime.manager.context.ProcessInstanceIdContext;
 import org.kie.internal.utils.CompositeClassLoader;
+
+import java.io.IOException;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class ProcessRuntimeImpl implements InternalProcessRuntime {
 	
@@ -69,26 +83,27 @@ public class ProcessRuntimeImpl implements InternalProcessRuntime {
 	private SignalManager signalManager;
 	private TimerManager timerManager;
 	private ProcessEventSupport processEventSupport;
-	private DefaultKieBaseEventListener knowledgeBaseListener;
 
 	public ProcessRuntimeImpl(InternalKnowledgeRuntime kruntime) {
 		this.kruntime = kruntime;
-        AcceptsTimerJobFactoryManager jfm = ( AcceptsTimerJobFactoryManager ) kruntime.getTimerService();
-        if ( jfm.getTimerJobFactoryManager() instanceof DefaultTimerJobFactoryManager ) {
-            jfm.setTimerJobFactoryManager( new TrackableTimeJobFactoryManager() );
-        }		
-		((AcceptsTimerJobFactoryManager)kruntime.getTimerService()).setTimerJobFactoryManager( new TrackableTimeJobFactoryManager() );		
+        TimerService timerService = kruntime.getTimerService();
+        if ( !(timerService.getTimerJobFactoryManager() instanceof CommandServiceTimerJobFactoryManager) ) {
+            timerService.setTimerJobFactoryManager( new ThreadSafeTrackableTimeJobFactoryManager() );
+        }
+
 		((CompositeClassLoader) getRootClassLoader()).addClassLoader( getClass().getClassLoader() );
 		initProcessInstanceManager();
 		initSignalManager();
 		timerManager = new TimerManager(kruntime, kruntime.getTimerService());
         processEventSupport = new ProcessEventSupport();
-        initProcessEventListeners();
-        initProcessActivationListener();        
-        initStartTimers();
+        if (isActive()) {
+            initProcessEventListeners();                   
+            initStartTimers();
+        }
+        initProcessActivationListener(); 
 	}
 	
-	private void initStartTimers() {
+	public void initStartTimers() {
 	    KieBase kbase = kruntime.getKieBase();
         Collection<Process> processes = kbase.getProcesses();
         for (Process process : processes) {
@@ -96,25 +111,26 @@ public class ProcessRuntimeImpl implements InternalProcessRuntime {
             List<StartNode> startNodes = p.getTimerStart();
             if (startNodes != null && !startNodes.isEmpty()) {
                 kruntime.queueWorkingMemoryAction(new RegisterStartTimerAction(p.getId(), startNodes, this.timerManager));
-                kruntime.executeQueuedActions();
             }
         }
     }
 
 	public ProcessRuntimeImpl(InternalWorkingMemory workingMemory) {
-		AcceptsTimerJobFactoryManager jfm = ( AcceptsTimerJobFactoryManager ) workingMemory.getTimerService();
-		if ( jfm.getTimerJobFactoryManager() instanceof DefaultTimerJobFactoryManager ) {
-		    jfm.setTimerJobFactoryManager( new TrackableTimeJobFactoryManager() );
-		}
+        TimerService timerService = workingMemory.getTimerService();
+        if ( !(timerService.getTimerJobFactoryManager() instanceof CommandServiceTimerJobFactoryManager) ) {
+            timerService.setTimerJobFactoryManager( new ThreadSafeTrackableTimeJobFactoryManager() );
+        }
 		
 		this.kruntime = (InternalKnowledgeRuntime) workingMemory.getKnowledgeRuntime();
 		initProcessInstanceManager();
 		initSignalManager();
 		timerManager = new TimerManager(kruntime, kruntime.getTimerService());
         processEventSupport = new ProcessEventSupport();
-        initProcessEventListeners();
+        if (isActive()) {
+            initProcessEventListeners();                   
+            initStartTimers();
+        }
         initProcessActivationListener();
-        initStartTimers();
 	}
 	
 	private void initProcessInstanceManager() {
@@ -187,9 +203,7 @@ public class ProcessRuntimeImpl implements InternalProcessRuntime {
     public ProcessInstance startProcessInstance(long processInstanceId, String trigger) {
     	try {
             kruntime.startOperation();
-            if ( !kruntime.getActionQueue().isEmpty() ) {
-            	kruntime.executeQueuedActions();
-            }
+
             ProcessInstance processInstance = getProcessInstance(processInstanceId);
 	        getProcessEventSupport().fireBeforeProcessStarted( processInstance, kruntime );
 	        ((org.jbpm.process.instance.ProcessInstance) processInstance).start(trigger);
@@ -219,9 +233,7 @@ public class ProcessRuntimeImpl implements InternalProcessRuntime {
             CorrelationKey correlationKey, Map<String, Object> parameters) {
         try {
             kruntime.startOperation();
-            if ( !kruntime.getActionQueue().isEmpty() ) {
-                kruntime.executeQueuedActions();
-            }
+
             final Process process = kruntime.getKieBase().getProcess( processId );
             if ( process == null ) {
                 throw new IllegalArgumentException( "Unknown process ID: " + processId );
@@ -278,29 +290,26 @@ public class ProcessRuntimeImpl implements InternalProcessRuntime {
         processInstanceManager.removeProcessInstance( processInstance );
     }
     
-    private void initProcessEventListeners() {
+    public void initProcessEventListeners() {
         for ( Process process : kruntime.getKieBase().getProcesses() ) {
             initProcessEventListener(process);
         }
-        knowledgeBaseListener = new DefaultKieBaseEventListener() {
-        	@Override
-        	public void afterProcessAdded(AfterProcessAddedEvent event) {
-        		initProcessEventListener(event.getProcess());
-        	}
-        	@Override
-        	public void afterProcessRemoved(AfterProcessRemovedEvent event) {
-        		if (event.getProcess() instanceof RuleFlowProcess) {
-        			String type = (String)
-    				    ((RuleFlowProcess) event.getProcess()).getRuntimeMetaData().get("StartProcessEventType");
-        			StartProcessEventListener listener = (StartProcessEventListener)
-        				((RuleFlowProcess) event.getProcess()).getRuntimeMetaData().get("StartProcessEventListener");
-        			if (type != null && listener != null) {
-        				signalManager.removeEventListener(type, listener);
-        			}
-        		}
-        	}
-		};
-        kruntime.getKieBase().addEventListener(knowledgeBaseListener);
+    }
+    
+    public void removeProcessEventListeners() {
+        for ( Process process : kruntime.getKieBase().getProcesses() ) {
+            removeProcessEventListener(process);
+        }
+    }
+    
+    private void removeProcessEventListener(Process process) {
+        if (process instanceof RuleFlowProcess) {
+            String type = (String) ((RuleFlowProcess) process).getRuntimeMetaData().get("StartProcessEventType");
+            StartProcessEventListener listener = (StartProcessEventListener) ((RuleFlowProcess) process).getRuntimeMetaData().get("StartProcessEventListener");
+            if (type != null && listener != null) {
+                signalManager.removeEventListener(type, listener);
+            }
+        }
     }
     
     private void initProcessEventListener(Process process) {
@@ -388,19 +397,31 @@ public class ProcessRuntimeImpl implements InternalProcessRuntime {
 	        Map<String, Object> params = null;
 	        if ( inMappings != null && !inMappings.isEmpty() ) {
 	        	params = new HashMap<String, Object>();
-	            for ( Map.Entry<String, String> entry : inMappings.entrySet() ) {
-	                if ( "event".equals( entry.getValue() ) ) {
-	                    params.put( entry.getKey(),
-	                                event );
-	                } else {
-	                    params.put( entry.getKey(),
-	                                entry.getValue() );
+	        	
+	        	if (inMappings.size() == 1) {
+	        		params.put( inMappings.keySet().iterator().next(), event );
+	        	} else {
+		            for ( Map.Entry<String, String> entry : inMappings.entrySet() ) {
+		                if ( "event".equals( entry.getValue() ) ) {
+		                    params.put( entry.getKey(),
+		                                event );
+		                } else {
+		                    params.put( entry.getKey(),
+		                                entry.getValue() );
 	                }
 	            }
+	        	}
 	        }
-	        RuntimeManager manager = (RuntimeManager) kruntime.getEnvironment().get("RuntimeManager");
+	        RuntimeManager manager = (RuntimeManager) kruntime.getEnvironment().get(EnvironmentName.RUNTIME_MANAGER);
             if (manager != null) {
-                RuntimeEngine runtime = manager.getRuntimeEngine(ProcessInstanceIdContext.get());
+                org.kie.api.runtime.manager.Context<?> context = ProcessInstanceIdContext.get();
+                
+                String caseId = (String) kruntime.getEnvironment().get(EnvironmentName.CASE_ID);
+                if (caseId != null) {
+                    context = CaseContext.get(caseId);
+                }
+                
+                RuntimeEngine runtime = manager.getRuntimeEngine(context);
                 KieSession ksession = runtime.getKieSession();
                 
                 ksession.execute(new StartProcessWithTypeCommand(processId, params, type));
@@ -420,16 +441,16 @@ public class ProcessRuntimeImpl implements InternalProcessRuntime {
                     // signal process instances of that state node
                     String ruleName = event.getMatch().getRule().getName();
                     if ( ruleName.startsWith( "RuleFlowStateNode-" )) {
-                        int index = ruleName.indexOf( "-",
+                        int index = ruleName.indexOf( '-',
                                                       18 );
-                        index = ruleName.indexOf( "-",
+                        index = ruleName.indexOf( '-',
                                                   index + 1 );
                         String eventType = ruleName.substring( 0,
                                                                index );
-                        signalManager.signalEvent( eventType,
-                                                   event );
-                    } else if (ruleName.startsWith( "RuleFlowStateEventSubProcess-" ) || ruleName.startsWith( "RuleFlowStateEvent-" )) {
-                        signalManager.signalEvent( ruleName,  event );
+
+                        kruntime.queueWorkingMemoryAction(new SignalManagerSignalAction(eventType, event));
+                    } else if (ruleName.startsWith( "RuleFlowStateEventSubProcess-" ) || ruleName.startsWith( "RuleFlowStateEvent-" ) || ruleName.startsWith( "RuleFlow-Milestone-" ) || ruleName.startsWith( "RuleFlow-AdHocComplete-" )) {
+                        kruntime.queueWorkingMemoryAction(new SignalManagerSignalAction(ruleName, event));
                     }
                 }
 			}
@@ -438,7 +459,7 @@ public class ProcessRuntimeImpl implements InternalProcessRuntime {
         kruntime.addEventListener(new DefaultAgendaEventListener() {
             public void afterRuleFlowGroupDeactivated(final RuleFlowGroupDeactivatedEvent event) {
             	if (kruntime instanceof StatefulKnowledgeSession) {
-                    signalManager.signalEvent( "RuleFlowGroup_" + event.getRuleFlowGroup().getName() + "_" + ((StatefulKnowledgeSession) kruntime).getId(),
+                    signalManager.signalEvent( "RuleFlowGroup_" + event.getRuleFlowGroup().getName() + "_" + ((StatefulKnowledgeSession) kruntime).getIdentifier(),
                             null );
             	} else {
                     signalManager.signalEvent( "RuleFlowGroup_" + event.getRuleFlowGroup().getName(),
@@ -448,7 +469,7 @@ public class ProcessRuntimeImpl implements InternalProcessRuntime {
         } );
     }
     
-    private class StartProcessWithTypeCommand implements  GenericCommand<Void> {
+    private class StartProcessWithTypeCommand implements ExecutableCommand<Void> {
 		private static final long serialVersionUID = -8890906804846111698L;
 		
 		private String processId;
@@ -462,8 +483,8 @@ public class ProcessRuntimeImpl implements InternalProcessRuntime {
 		}
 		
 		@Override
-		public Void execute(Context context) {
-			KieSession ksession = ((KnowledgeCommandContext) context).getKieSession();
+		public Void execute(Context context ) {
+            KieSession ksession = ((RegistryContext) context).lookup( KieSession.class );
 			((ProcessRuntimeImpl)((InternalKnowledgeRuntime)ksession).getProcessRuntime()).startProcess( processId,
                       params, type );
 			
@@ -498,10 +519,8 @@ public class ProcessRuntimeImpl implements InternalProcessRuntime {
 	public void dispose() {
         this.processEventSupport.reset();
         this.timerManager.dispose();
-        if( kruntime != null ) { 
-            kruntime.getKieBase().removeEventListener(knowledgeBaseListener);
-            kruntime = null;
-        }
+        kruntime = null;
+        
 	}
 
 	public void clearProcessInstances() {
@@ -512,8 +531,17 @@ public class ProcessRuntimeImpl implements InternalProcessRuntime {
         this.processInstanceManager.clearProcessInstancesState();
         
     }
+    
+    public boolean isActive() {
+        Boolean active = (Boolean) kruntime.getEnvironment().get("Active");
+        if (active == null) {
+            return true;
+        }
+        
+        return active.booleanValue();
+    }
 
-    public static class RegisterStartTimerAction implements WorkingMemoryAction {
+    public static class RegisterStartTimerAction extends PropagationEntry.AbstractPropagationEntry implements WorkingMemoryAction {
 
         private List<StartNode> startNodes;
         private String processId;
@@ -530,16 +558,6 @@ public class ProcessRuntimeImpl implements InternalProcessRuntime {
         }
         
         @Override
-        public void readExternal(ObjectInput in) throws IOException,
-                ClassNotFoundException {
-            
-        }
-
-        @Override
-        public void writeExternal(ObjectOutput out) throws IOException {            
-        }
-
-        @Override
         public void execute(InternalWorkingMemory workingMemory) {
             initTimer(workingMemory.getKnowledgeRuntime());
         }
@@ -547,11 +565,6 @@ public class ProcessRuntimeImpl implements InternalProcessRuntime {
         @Override
         public void execute(InternalKnowledgeRuntime kruntime) {
             initTimer(kruntime);
-        }
-
-        @Override
-        public void write(MarshallerWriteContext context) throws IOException {
-            
         }
 
         @Override
@@ -603,7 +616,6 @@ public class ProcessRuntimeImpl implements InternalProcessRuntime {
         }
         
         private void configureTimerInstance(Timer timer, TimerInstance timerInstance) {
-            String s = null;
             long duration = -1;
             switch (timer.getTimeType()) {
             case Timer.TIME_CYCLE:
@@ -649,4 +661,35 @@ public class ProcessRuntimeImpl implements InternalProcessRuntime {
         }
     }
 
+    public class SignalManagerSignalAction extends PropagationEntry.AbstractPropagationEntry implements WorkingMemoryAction {
+
+        private String type;
+        private Object event;
+        
+        public SignalManagerSignalAction(String type, Object event) {
+            this.type = type;
+            this.event = event;
+        }
+        
+        public SignalManagerSignalAction(MarshallerReaderContext context) throws IOException, ClassNotFoundException {
+            type = context.readUTF();
+            if (context.readBoolean()) {
+                event = context.readObject();
+            }
+        }
+        
+        public void execute(InternalWorkingMemory workingMemory) {
+            
+            signalEvent(type, event);
+        }
+
+        public void execute(InternalKnowledgeRuntime kruntime) {
+            signalEvent(type, event);
+        }
+     
+        public Action serialize(MarshallerWriteContext context) throws IOException {
+            return null;
+        }
+        
+    }
 }

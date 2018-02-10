@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,11 +26,13 @@ public class UserTaskDefinitionImpl implements UserTaskDefinition, Serializable 
 		
 	private static final long serialVersionUID = -8240667577168891456L;
 	
+	private String id;
 	private String name;
 	private Integer priority;
 	private String comment;
 	private String createdBy;
 	private boolean skippable;
+	private String formName;
 
 	private Collection<String> associatedEntities;
 	private Map<String, String> taskInputMappings;
@@ -75,6 +77,16 @@ public class UserTaskDefinitionImpl implements UserTaskDefinition, Serializable 
 	public Map<String, String> getTaskOutputMappings() {		
 		return taskOutputMappings;
 	}
+	
+    @Override
+    public String getId() {
+        return id;
+    }
+
+    @Override
+    public String getFormName() {
+        return formName;
+    }
 
 	public void setName(String name) {
 		this.name = name;
@@ -107,5 +119,13 @@ public class UserTaskDefinitionImpl implements UserTaskDefinition, Serializable 
 	public void setTaskOutputMappings(Map<String, String> taskOutputMappings) {
 		this.taskOutputMappings = taskOutputMappings;
 	}
+    
+    public void setId(String id) {
+        this.id = id;
+    }
+    
+    public void setFormName(String formName) {
+        this.formName = formName;
+    }
 
 }

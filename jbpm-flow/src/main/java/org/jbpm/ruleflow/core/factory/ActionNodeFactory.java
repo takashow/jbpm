@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,14 +24,14 @@ import org.jbpm.workflow.core.NodeContainer;
 import org.jbpm.workflow.core.impl.DroolsConsequenceAction;
 import org.jbpm.workflow.core.node.ActionNode;
 
-/**
- *
- * @author salaboy
- */
 public class ActionNodeFactory extends NodeFactory {
 
-    public ActionNodeFactory(RuleFlowNodeContainerFactory nodeContainerFactory, NodeContainer nodeContainer, long id) {
-        super(nodeContainerFactory, nodeContainer, id);
+    public ActionNodeFactory(RuleFlowNodeContainerFactory nodeContainerFactory,
+                             NodeContainer nodeContainer,
+                             long id) {
+        super(nodeContainerFactory,
+              nodeContainer,
+              id);
     }
 
     protected Node createNode() {
@@ -47,19 +47,31 @@ public class ActionNodeFactory extends NodeFactory {
         return this;
     }
 
-    public ActionNodeFactory action(String dialect, String action) {
-        getActionNode().setAction(new DroolsConsequenceAction(dialect, action));
+    public ActionNodeFactory action(String dialect,
+                                    String action) {
+        return action(dialect, action, false);
+    }
+
+    public ActionNodeFactory action(String dialect,
+                                    String action,
+                                    boolean isDroolsAction) {
+        if(isDroolsAction) {
+            DroolsAction droolsAction = new DroolsAction();
+            droolsAction.setMetaData("Action",
+                                     action);
+            getActionNode().setAction(droolsAction);
+        } else {
+            getActionNode().setAction(new DroolsConsequenceAction(dialect,
+                                                                  action));
+        }
         return this;
     }
-    
-    //
-    // Allow the creation of programmatic actions that implement org.jbpm.process.instance.impl.Action interface.
-    // I just want to write simple classes to execute arbitrary logic without having to use a file.
-    //
+
     public ActionNodeFactory action(Action action) {
-      DroolsAction droolsAction = new DroolsAction();
-      droolsAction.setMetaData("Action",action);
-      getActionNode().setAction(droolsAction);
-      return this;
-  }    
+        DroolsAction droolsAction = new DroolsAction();
+        droolsAction.setMetaData("Action",
+                                 action);
+        getActionNode().setAction(droolsAction);
+        return this;
+    }
 }

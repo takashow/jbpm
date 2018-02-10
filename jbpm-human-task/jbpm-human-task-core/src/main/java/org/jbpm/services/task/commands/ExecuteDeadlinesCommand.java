@@ -1,28 +1,33 @@
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jbpm.services.task.commands;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlRootElement;
-import javax.xml.bind.annotation.XmlSchemaType;
-import javax.xml.bind.annotation.XmlTransient;
-
-import org.jbpm.services.task.deadlines.NotificationListener;
-import org.jbpm.services.task.deadlines.notifications.impl.email.EmailNotificationListener;
+import org.jbpm.services.task.assignment.AssignmentService;
+import org.jbpm.services.task.assignment.AssignmentServiceProvider;
+import org.jbpm.services.task.deadlines.notifications.impl.NotificationListenerManager;
+import org.jbpm.services.task.events.TaskEventSupport;
 import org.jbpm.services.task.utils.ContentMarshallerHelper;
+import org.kie.api.runtime.Context;
 import org.kie.api.runtime.EnvironmentName;
 import org.kie.api.task.model.Content;
 import org.kie.api.task.model.OrganizationalEntity;
 import org.kie.api.task.model.Status;
 import org.kie.api.task.model.Task;
 import org.kie.api.task.model.TaskData;
-import org.kie.internal.command.Context;
 import org.kie.internal.task.api.ContentMarshallerContext;
 import org.kie.internal.task.api.TaskDeadlinesService.DeadlineType;
 import org.kie.internal.task.api.TaskPersistenceContext;
@@ -38,6 +43,17 @@ import org.kie.internal.task.api.model.Reassignment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlSchemaType;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 @XmlRootElement(name="execute-deadlines-command")
 @XmlAccessorType(XmlAccessType.NONE)
 public class ExecuteDeadlinesCommand extends TaskCommand<Void> {
@@ -50,8 +66,7 @@ public class ExecuteDeadlinesCommand extends TaskCommand<Void> {
 	private Long deadlineId; 
 	@XmlElement
 	private DeadlineType type;
-	@XmlTransient
-	private NotificationListener notificationListener;
+
 	
 	public ExecuteDeadlinesCommand() {
 		
@@ -63,20 +78,12 @@ public class ExecuteDeadlinesCommand extends TaskCommand<Void> {
 		this.type = type;
 	}
 	
-	public ExecuteDeadlinesCommand(long taskId, long deadlineId, DeadlineType type, NotificationListener notificationListener) {
-		this.taskId = taskId;
-		this.deadlineId = deadlineId;
-		this.type = type;
-		this.notificationListener = notificationListener;
-	}
 
 	@SuppressWarnings("unchecked")
 	@Override
 	public Void execute(Context context) {
 		TaskContext ctx = (TaskContext) context;
-		if (notificationListener == null) {
-			this.notificationListener = new EmailNotificationListener((UserInfo) context.get(EnvironmentName.TASK_USER_INFO));
-		}
+		UserInfo userInfo = (UserInfo) context.get(EnvironmentName.TASK_USER_INFO);
 		
 		TaskPersistenceContext persistenceContext = ctx.getPersistenceContext();
 		
@@ -116,6 +123,8 @@ public class ExecuteDeadlinesCommand extends TaskCommand<Void> {
 	                if (deadline == null || deadline.getEscalations() == null ) {
 	                    return null;
 	                }
+	                
+	                TaskEventSupport taskEventSupport = ctx.getTaskEventSupport();
 	
 	                for (Escalation escalation : deadline.getEscalations()) {
 	
@@ -124,6 +133,9 @@ public class ExecuteDeadlinesCommand extends TaskCommand<Void> {
 	
 	                    // run reassignment first to allow notification to be send to new potential owners
 	                    if (!escalation.getReassignments().isEmpty()) {
+	                        
+	                        taskEventSupport.fireBeforeTaskReassigned(task, ctx);
+	                        
 	                        // get first and ignore the rest.
 	                        Reassignment reassignment = escalation.getReassignments().get(0);
 	                        logger.debug("Reassigning to {}", reassignment.getPotentialOwners());
@@ -132,12 +144,23 @@ public class ExecuteDeadlinesCommand extends TaskCommand<Void> {
 	                        List<OrganizationalEntity> potentialOwners = new ArrayList<OrganizationalEntity>(reassignment.getPotentialOwners());
 	                        ((InternalPeopleAssignments) task.getPeopleAssignments()).setPotentialOwners(potentialOwners);
 	                        ((InternalTaskData) task.getTaskData()).setActualOwner(null);
+	                        
+	                        // use assignment service to directly assign actual owner if enabled
+	                        AssignmentService assignmentService = AssignmentServiceProvider.get();
+	                        if (assignmentService.isEnabled()) {
+	                            assignmentService.assignTask(task, ctx);
+	                        }
 	
+	                        taskEventSupport.fireAfterTaskReassigned(task, ctx);
 	                    }
 	                    for (Notification notification : escalation.getNotifications()) {
 	                        if (notification.getNotificationType() == NotificationType.Email) {
+	                            
+	                            taskEventSupport.fireBeforeTaskNotified(task, ctx);
 	                            logger.debug("Sending an Email");
-	                            notificationListener.onNotification(new NotificationEvent(notification, task, variables));
+	                            NotificationListenerManager.get().broadcast(new NotificationEvent(notification, task, variables), userInfo);
+	                            
+	                            taskEventSupport.fireAfterTaskNotified(task, ctx);
 	                        }
 	                    }
 	                }

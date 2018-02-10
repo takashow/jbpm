@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 JBoss Inc
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,6 +15,7 @@
  */
 package org.jbpm.runtime.manager.impl;
 
+import javax.naming.InitialContext;
 import javax.persistence.EntityManagerFactory;
 
 import org.jbpm.process.core.timer.GlobalSchedulerService;
@@ -25,6 +26,8 @@ import org.jbpm.runtime.manager.impl.jpa.EntityManagerFactoryManager;
 import org.jbpm.runtime.manager.impl.mapper.InMemoryMapper;
 import org.jbpm.runtime.manager.impl.mapper.JPAMapper;
 import org.kie.api.runtime.EnvironmentName;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Default implementation of the RuntimeEnvironment that aims at providing all 
@@ -41,6 +44,8 @@ import org.kie.api.runtime.EnvironmentName;
  *
  */
 public class DefaultRuntimeEnvironment extends SimpleRuntimeEnvironment {
+	
+	private static final Logger logger = LoggerFactory.getLogger(DefaultRuntimeEnvironment.class);
 
     public DefaultRuntimeEnvironment() {
         this(null, discoverSchedulerService());
@@ -66,7 +71,7 @@ public class DefaultRuntimeEnvironment extends SimpleRuntimeEnvironment {
     }
     
     public void init() {
-        if (emf == null && getEnvironmentTemplate().get(EnvironmentName.CMD_SCOPED_ENTITY_MANAGER) == null) {
+        if (usePersistence && emf == null && getEnvironmentTemplate().get(EnvironmentName.CMD_SCOPED_ENTITY_MANAGER) == null) {
             emf = EntityManagerFactoryManager.get().getOrCreate("org.jbpm.persistence.jpa");
         }   
         addToEnvironment(EnvironmentName.ENTITY_MANAGER_FACTORY, emf);
@@ -82,7 +87,19 @@ public class DefaultRuntimeEnvironment extends SimpleRuntimeEnvironment {
     protected static GlobalSchedulerService discoverSchedulerService() {
         if (System.getProperty("org.quartz.properties") != null) {
             return new QuartzSchedulerService();
-        } 
+        } else {
+        	// if there is ejb scheduler service available make use of it unless it's disabled
+        	if (!"true".equalsIgnoreCase(System.getProperty("org.kie.timer.ejb.disabled"))) {
+	        	try {
+	        		Class<?> clazz = Class.forName("org.jbpm.services.ejb.timer.EjbSchedulerService");
+	        		// to ensure ejb timer service is actually available let's jndi look up
+	        		InitialContext.doLookup("java:module/EJBTimerScheduler");
+	        		return (GlobalSchedulerService) clazz.newInstance();
+	        	} catch (Exception e) {
+	        		logger.debug("Unable to find on initialize ejb schduler service due to {}", e.getMessage());
+	        	}
+        	}
+        }
         return new ThreadPoolSchedulerService(3);
         
     }

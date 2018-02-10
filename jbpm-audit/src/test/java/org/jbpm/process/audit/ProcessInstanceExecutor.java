@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,23 +19,23 @@ package org.jbpm.process.audit;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.Arrays;
-import java.util.Collection;
 
 import org.drools.compiler.builder.impl.KnowledgeBuilderImpl;
 import org.drools.core.definitions.InternalKnowledgePackage;
+import org.drools.core.impl.InternalKnowledgeBase;
+import org.drools.core.impl.KnowledgeBaseFactory;
 import org.jbpm.process.instance.impl.demo.UIWorkItemHandler;
-import org.kie.internal.KnowledgeBase;
-import org.kie.internal.KnowledgeBaseFactory;
-import org.kie.internal.runtime.StatefulKnowledgeSession;
+import org.kie.api.KieBase;
+import org.kie.api.runtime.KieSession;
 
 public class ProcessInstanceExecutor {
     
     public static final void main(String[] args) {
         try {
             //load the process
-            KnowledgeBase kbase = createKnowledgeBase();
+            KieBase kbase = createKnowledgeBase();
             // create a new session
-            StatefulKnowledgeSession session = kbase.newStatefulKnowledgeSession();
+            KieSession session = kbase.newKieSession();
             new JPAWorkingMemoryDbLogger(session);
             UIWorkItemHandler uiHandler = new UIWorkItemHandler();
             session.getWorkItemManager().registerWorkItemHandler("Human Task", uiHandler);
@@ -49,7 +49,7 @@ public class ProcessInstanceExecutor {
     /**
      * Creates the knowledge base by loading the process definition.
      */
-    private static KnowledgeBase createKnowledgeBase() throws Exception {
+    private static KieBase createKnowledgeBase() throws Exception {
         // create a builder
         KnowledgeBuilderImpl builder = new KnowledgeBuilderImpl();
         // load the process
@@ -60,9 +60,8 @@ public class ProcessInstanceExecutor {
             ProcessInstanceExecutor.class.getResourceAsStream("/ruleflow2.rf"));
         builder.addProcessFromXml(source);
        // create the knowledge base 
-        InternalKnowledgePackage pkg = builder.getPackage();
-        KnowledgeBase ruleBase = KnowledgeBaseFactory.newKnowledgeBase();
-        ruleBase.addKnowledgePackages((Collection) Arrays.asList(pkg));
+        InternalKnowledgeBase ruleBase = KnowledgeBaseFactory.newKnowledgeBase();
+        ruleBase.addPackages(Arrays.asList(builder.getPackages()));
         return ruleBase;
     }
     

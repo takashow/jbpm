@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 JBoss Inc
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,7 +18,6 @@ package org.jbpm.runtime.manager.impl;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import javax.persistence.EntityManagerFactory;
 
 import org.drools.compiler.kie.builder.impl.InternalKieModule;
@@ -53,7 +52,7 @@ import org.kie.internal.runtime.conf.ObjectModelResolverProvider;
 import org.kie.internal.runtime.conf.PersistenceMode;
 import org.kie.internal.runtime.manager.Mapper;
 import org.kie.internal.runtime.manager.RuntimeEnvironment;
-import org.kie.scanner.MavenRepository;
+import org.kie.scanner.KieMavenRepository;
 
 /**
  * A builder implementation that follows the fluent approach to build <code>RuntimeEnvironments</code>.
@@ -192,7 +191,7 @@ public class RuntimeEnvironmentBuilder implements RuntimeEnvironmentBuilderFacto
      * @see DefaultRuntimeEnvironment
      */
     public static RuntimeEnvironmentBuilder getDefault(ReleaseId releaseId, String kbaseName, String ksessionName) {
-    	MavenRepository repository = MavenRepository.getMavenRepository();
+    	KieMavenRepository repository = KieMavenRepository.getKieMavenRepository();
         repository.resolveArtifact(releaseId.toExternalForm());
     	KieServices ks = KieServices.Factory.get();
     	KieContainer kieContainer = ks.newKieContainer(releaseId);

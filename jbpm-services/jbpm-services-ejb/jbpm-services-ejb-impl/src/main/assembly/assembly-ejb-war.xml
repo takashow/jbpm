@@ -15,6 +15,10 @@
       <source>${project.basedir}/src/test/resources/META-INF/beans.xml</source>
       <outputDirectory>WEB-INF/classes/META-INF</outputDirectory>
     </file>
+    <file>
+      <source>${project.basedir}/src/test/resources/jbpm-executor.properties</source>
+      <outputDirectory>WEB-INF/classes</outputDirectory>
+    </file>
   </files>
   <dependencySets>
     <dependencySet>
@@ -28,6 +32,7 @@
     <dependencySet>
       <includes>
         <include>org.jbpm:jbpm-kie-services:test-jar</include>
+        <include>org.jbpm:jbpm-workitems:jar</include>
       </includes>
       <unpack>true</unpack>
       <scope>test</scope>
@@ -37,6 +42,7 @@
           <include>org/jbpm/kie/services/helper/*</include>
         </includes>
       </unpackOptions>
+      <useTransitiveFiltering>true</useTransitiveFiltering>
     </dependencySet>
   </dependencySets>
 </assembly>

@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 JBoss Inc
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,29 +15,30 @@
  */
 package org.jbpm.runtime.manager.impl.mapper;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.kie.api.runtime.manager.Context;
-import org.kie.internal.runtime.manager.Mapper;
 
 /**
  * An in-memory implementation of the context to <code>KieSession</code> identifier mapping.
  * Used only when the <code>RuntimeManager</code> is used without persistence. 
  *
  */
-public class InMemoryMapper implements Mapper {
+public class InMemoryMapper extends InternalMapper {
 
-    private Map<Object, Integer> mapping = new ConcurrentHashMap<Object, Integer>();
+    private Map<Object, Long> mapping = new ConcurrentHashMap<Object, Long>();
     
     
     @Override
-    public void saveMapping(Context<?> context, Integer ksessionId, String ownerId) {
+    public void saveMapping(Context<?> context, Long ksessionId, String ownerId) {
         this.mapping.put(context.getContextId(), ksessionId);
     }
 
     @Override
-    public Integer findMapping(Context<?> context, String ownerId) {
+    public Long findMapping(Context<?> context, String ownerId) {
         return this.mapping.get(context.getContextId());
     }
 
@@ -47,10 +48,10 @@ public class InMemoryMapper implements Mapper {
     }
 
     @Override
-    public Object findContextId(Integer ksessionId, String ownerId) {
+    public Object findContextId(Long ksessionId, String ownerId) {
         if (mapping.containsValue(ksessionId)) {
-            for (Map.Entry<Object, Integer> entry : mapping.entrySet()) {
-                if (entry.getValue() == ksessionId) {
+            for (Map.Entry<Object, Long> entry : mapping.entrySet()) {
+                if (entry.getValue().equals(ksessionId)) {
                     return entry.getKey();
                 }
             }
@@ -58,7 +59,19 @@ public class InMemoryMapper implements Mapper {
         return null;
     }
 
-    public boolean hasContext(Integer ksessionId) {
+    public boolean hasContext(Long ksessionId) {
     	return mapping.containsValue(ksessionId);
+    }
+
+    @Override
+    public List<String> findContextIdForEvent(String eventType, String ownerId) {
+        List<String> contextIds = new ArrayList<String>(); 
+        
+        if (mapping != null && !mapping.isEmpty()) {
+            for (Object contextId : mapping.keySet()) {
+                contextIds.add(contextId.toString());
+            }
+        }
+        return contextIds;
     }
 }

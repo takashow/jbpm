@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,6 +29,7 @@ public class QueryManager {
 	public static final String ORDER_BY_KEY = "orderby";
 	public static final String ASCENDING_KEY = "asc";
 	public static final String DESCENDING_KEY = "desc";
+	public static final String FILTER = "filter";
 	
 	private Map<String, String> queries = new ConcurrentHashMap<String, String>();
 	
@@ -55,23 +56,34 @@ public class QueryManager {
 	}
 	
 	public String getQuery(String name, Map<String, Object> params) {
-		String query = null;
+		StringBuffer query = null;
 		if (!queries.containsKey(name)) {
 			return null;
 		}
+		String operand = " and ";
+		
+		StringBuffer buf = new StringBuffer(queries.get(name));
+		if (buf.indexOf("where") == -1) {
+			operand = " where ";
+		}
+		if (params != null && params.containsKey(FILTER)) {
+			
+            buf.append(operand + params.get(FILTER));
+            query = buf;
+        }
 		
 		if (params != null && params.containsKey(ORDER_BY_KEY)) {
-			StringBuffer buf = new StringBuffer(queries.get(name)); 
+			 
 			buf.append(" \n ORDER BY " + adaptOrderBy((String)params.get("orderby")));
 			if (params.containsKey(ASCENDING_KEY)) {
 				buf.append(" ASC");
 			} else if (params.containsKey(DESCENDING_KEY)) {
 				buf.append(" DESC");
 			}
-			query = buf.toString();
+			query = buf;
 		}
 		
-		return query;
+		 return (query == null ? null : query.toString() );
 	}
 	
 	protected void parse(String ormFile) throws XMLStreamException {
@@ -94,7 +106,7 @@ public class QueryManager {
 
 			case XMLStreamConstants.CHARACTERS:
 				if (name != null) {
-					tagContent.append(" " + reader.getText().trim());
+					tagContent.append(reader.getText());
 				}
 				break;
 
@@ -126,11 +138,27 @@ public class QueryManager {
 				return "log.identity";
 			} else if (orderBy.equals("ProcessVersion")) {
 				return "log.processVersion";
-			} else if (orderBy.equals("Status")) {
+			} else if (orderBy.equals("State")) {
 				return "log.status";
 			} else if (orderBy.equals("StartDate")) {
 				return "log.start";
-			} 
+			} else if (orderBy.equalsIgnoreCase("Task")) {
+                return "t.name";
+            } else if (orderBy.equalsIgnoreCase("Description")) {
+                return "t.description";
+            } else if (orderBy.equalsIgnoreCase("TaskId")) {
+                return "t.id";
+            } else if (orderBy.equalsIgnoreCase("Priority")) {
+                return "t.priority";
+            } else if (orderBy.equalsIgnoreCase("Status")) {
+                return "t.taskData.status";
+            } else if (orderBy.equalsIgnoreCase("CreatedOn")) {
+                return "t.taskData.createdOn";
+            } else if (orderBy.equalsIgnoreCase("CreatedBy")) {
+                return "t.taskData.createdBy.id";
+            } else if (orderBy.equalsIgnoreCase("DueOn")) {
+                return "t.taskData.expirationTime";
+            }
 		}
 		return orderBy;
 	}

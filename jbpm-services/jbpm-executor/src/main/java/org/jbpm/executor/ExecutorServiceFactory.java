@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,6 +26,7 @@ import org.jbpm.executor.impl.ClassCacheManager;
 import org.jbpm.executor.impl.ExecutorImpl;
 import org.jbpm.executor.impl.ExecutorRunnable;
 import org.jbpm.executor.impl.ExecutorServiceImpl;
+import org.jbpm.executor.impl.event.ExecutorEventSupport;
 import org.jbpm.executor.impl.jpa.ExecutorQueryServiceImpl;
 import org.jbpm.executor.impl.jpa.ExecutorRequestAdminServiceImpl;
 import org.jbpm.executor.impl.jpa.JPAExecutorStoreService;
@@ -33,11 +34,11 @@ import org.jbpm.executor.impl.mem.InMemoryExecutorAdminServiceImpl;
 import org.jbpm.executor.impl.mem.InMemoryExecutorQueryServiceImpl;
 import org.jbpm.executor.impl.mem.InMemoryExecutorStoreService;
 import org.jbpm.shared.services.impl.TransactionalCommandService;
-import org.kie.internal.executor.api.Executor;
-import org.kie.internal.executor.api.ExecutorAdminService;
-import org.kie.internal.executor.api.ExecutorQueryService;
-import org.kie.internal.executor.api.ExecutorService;
-import org.kie.internal.executor.api.ExecutorStoreService;
+import org.kie.api.executor.Executor;
+import org.kie.api.executor.ExecutorAdminService;
+import org.kie.api.executor.ExecutorQueryService;
+import org.kie.api.executor.ExecutorService;
+import org.kie.api.executor.ExecutorStoreService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,7 +49,9 @@ import org.slf4j.LoggerFactory;
 public class ExecutorServiceFactory {
 
 	private final static String mode = System.getProperty( "org.jbpm.cdi.executor.mode", "singleton" );
-    private final static String ejb_mode = System.getProperty("org.jbpm.ejb.executor.mode", "enabled");
+	
+	private final static String availableJobsExecutorName = System.getProperty(
+	    "org.jbpm.cdi.executor.jndi", "java:module/AvailableJobsExecutor" );
 
 	private static final Logger logger = LoggerFactory.getLogger(ExecutorServiceFactory.class);
    
@@ -83,7 +86,7 @@ public class ExecutorServiceFactory {
     }
 
     private static ExecutorService configure(EntityManagerFactory emf) {
-
+        ExecutorEventSupport eventSupport = new ExecutorEventSupport();
         // create instances of executor services
 
     	ExecutorQueryService queryService = new ExecutorQueryServiceImpl(true);
@@ -96,8 +99,10 @@ public class ExecutorServiceFactory {
         ExecutorStoreService storeService = new JPAExecutorStoreService(true);
         ((JPAExecutorStoreService)storeService).setCommandService(commandService);
         ((JPAExecutorStoreService)storeService).setEmf(emf);
+        ((JPAExecutorStoreService)storeService).setEventSupport(eventSupport);
         
         ((ExecutorImpl) executor).setExecutorStoreService(storeService);
+        ((ExecutorImpl) executor).setEventSupport(eventSupport);
         
         // set executor on all instances that requires it
         ((ExecutorQueryServiceImpl) queryService).setCommandService(commandService);        
@@ -109,21 +114,23 @@ public class ExecutorServiceFactory {
     	((ExecutorServiceImpl)service).setQueryService(queryService);
     	((ExecutorServiceImpl)service).setExecutor(executor);
         ((ExecutorServiceImpl)service).setAdminService(adminService);
-         
+        ((ExecutorServiceImpl)service).setEventSupport(eventSupport);
 
         return service;
     }
     
     private static ExecutorService configure() {
     	// create instances of executor services
-
+        ExecutorEventSupport eventSupport = new ExecutorEventSupport();
     	ExecutorQueryService queryService = new InMemoryExecutorQueryServiceImpl(true);
     	Executor executor = new ExecutorImpl();
     	ExecutorAdminService adminService = new InMemoryExecutorAdminServiceImpl(true);
 
     	InMemoryExecutorStoreService storeService = new InMemoryExecutorStoreService(true);
+    	((InMemoryExecutorStoreService)storeService).setEventSupport(eventSupport);
         
         ((ExecutorImpl) executor).setExecutorStoreService(storeService);
+        ((ExecutorImpl) executor).setEventSupport(eventSupport);
         
         // set executor on all instances that requires it
         ((InMemoryExecutorQueryServiceImpl) queryService).setStoreService(storeService);        
@@ -135,31 +142,27 @@ public class ExecutorServiceFactory {
     	((ExecutorServiceImpl)service).setQueryService(queryService);
     	((ExecutorServiceImpl)service).setExecutor(executor);
         ((ExecutorServiceImpl)service).setAdminService(adminService);
+        ((ExecutorServiceImpl)service).setEventSupport(eventSupport);        
          
 
         return service;
     }
 
-    public static ExecutorRunnable buildRunable(EntityManagerFactory emf) {
+    public static ExecutorRunnable buildRunable(EntityManagerFactory emf, ExecutorEventSupport eventSupport) {
         ExecutorRunnable runnable = new ExecutorRunnable();
         AvailableJobsExecutor jobExecutor = null;
 
-
-        if (!"enabled".equals(ejb_mode)) {
-            jobExecutor = buildJobExecutor(emf);
-        } else {
-            try {
-                jobExecutor = InitialContext.doLookup("java:module/AvailableJobsExecutor");
-            } catch (Exception e) {
-                jobExecutor = buildJobExecutor(emf);
-            }
+        try {
+            jobExecutor = InitialContext.doLookup(availableJobsExecutorName);
+        } catch (Exception e) {
+            jobExecutor = buildJobExecutor(emf, eventSupport);
         }
         runnable.setAvailableJobsExecutor(jobExecutor);
         return runnable;
     }
 
 
-    private static AvailableJobsExecutor buildJobExecutor(EntityManagerFactory emf) {
+    private static AvailableJobsExecutor buildJobExecutor(EntityManagerFactory emf, ExecutorEventSupport eventSupport) {
         AvailableJobsExecutor jobExecutor;
         jobExecutor = new AvailableJobsExecutor();
         ClassCacheManager classCacheManager = new ClassCacheManager();
@@ -174,22 +177,23 @@ public class ExecutorServiceFactory {
         jobExecutor.setClassCacheManager(classCacheManager);
         jobExecutor.setQueryService(queryService);
         jobExecutor.setExecutorStoreService(storeService);
+        jobExecutor.setEventSupport(eventSupport);
         // provide bean manager instance as context data as it might not be available to
         // be looked up from JNDI in non managed threads
         try {
             Object beanManager = InitialContext.doLookup("java:comp/BeanManager");
             jobExecutor.addContextData("BeanManager", beanManager);
         } catch (NamingException ex) {
-            logger.warn("CDI beans cannot be used in executor commands, because no CDI manager has been found in JNDI.");
+            logger.debug("CDI beans cannot be used in executor commands, because no CDI manager has been found in JNDI.");
         }
         return jobExecutor;
     }
     
-    public static ExecutorRunnable buildRunable() {
+    public static ExecutorRunnable buildRunable(ExecutorEventSupport eventSupport) {
     	ExecutorRunnable runnable = new ExecutorRunnable();
     	AvailableJobsExecutor jobExecutor = null;
     	try {
-    		jobExecutor = InitialContext.doLookup("java:module/AvailableJobsExecutor");
+    		jobExecutor = InitialContext.doLookup(availableJobsExecutorName);
     	} catch (Exception e) {
     		jobExecutor = new AvailableJobsExecutor();
 	    	ClassCacheManager classCacheManager = new ClassCacheManager();
@@ -201,16 +205,16 @@ public class ExecutorServiceFactory {
 	        jobExecutor.setClassCacheManager(classCacheManager);
 	        jobExecutor.setQueryService(queryService);
 	        jobExecutor.setExecutorStoreService(storeService);
+	        jobExecutor.setEventSupport(eventSupport);
 	        // provide bean manager instance as context data as it might not be available to
 	        // be looked up from JNDI in non managed threads
 	        try {
 				Object beanManager = InitialContext.doLookup("java:comp/BeanManager");
 				jobExecutor.addContextData("BeanManager", beanManager);
 			} catch (NamingException ex) {
-				logger.warn("CDI beans cannot be used in executor commands, because no CDI manager has been found in JNDI.");
+				logger.debug("CDI beans cannot be used in executor commands, because no CDI manager has been found in JNDI.");
 			}
     	}
-
         runnable.setAvailableJobsExecutor(jobExecutor);
         return runnable;
     }

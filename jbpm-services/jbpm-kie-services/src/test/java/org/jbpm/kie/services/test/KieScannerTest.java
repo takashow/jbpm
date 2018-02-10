@@ -1,8 +1,20 @@
-package org.jbpm.kie.services.test;
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.kie.scanner.MavenRepository.getMavenRepository;
+package org.jbpm.kie.services.test;
 
 import java.io.File;
 import java.io.IOException;
@@ -31,7 +43,11 @@ import org.kie.api.runtime.KieContainer;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.conf.ClockTypeOption;
 import org.kie.api.runtime.process.ProcessInstance;
-import org.kie.scanner.MavenRepository;
+import org.kie.scanner.KieMavenRepository;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.kie.scanner.KieMavenRepository.getKieMavenRepository;
 
 @Ignore
 public class KieScannerTest {
@@ -63,7 +79,7 @@ public class KieScannerTest {
         InternalKieModule kJar1 = createJbpmKieJar("Hello");
         KieContainer kieContainer = ks.newKieContainer(releaseId);
 
-        MavenRepository repository = getMavenRepository();
+        KieMavenRepository repository = getKieMavenRepository();
         repository.deployArtifact(releaseId, kJar1, kPom);
 
         // create a ksesion and check it works as expected

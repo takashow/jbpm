@@ -1,15 +1,30 @@
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jbpm.services.task.commands;
 
-import java.util.Arrays;
-import java.util.List;
+import org.kie.api.runtime.Context;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlElements;
 import javax.xml.bind.annotation.XmlRootElement;
-
-import org.kie.internal.command.Context;
+import java.util.Arrays;
+import java.util.List;
 
 @XmlRootElement(name="composite-command")
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -22,6 +37,7 @@ public class CompositeCommand<T> extends TaskCommand<T> {
 	            @XmlElement(name="add-attachment", type=AddAttachmentCommand.class),
 	            @XmlElement(name="add-comment", type=AddCommentCommand.class),
 	            @XmlElement(name="add-content", type=AddContentCommand.class),
+	            @XmlElement(name="add-content-from-user", type=AddContentFromUserCommand.class),
 	            @XmlElement(name="add-group", type=AddGroupCommand.class),
 	            @XmlElement(name="add-task", type=AddTaskCommand.class),
 	            @XmlElement(name="add-user", type=AddUserCommand.class),
@@ -53,7 +69,9 @@ public class CompositeCommand<T> extends TaskCommand<T> {
 	            @XmlElement(name="get-comment", type=GetCommentCommand.class),
 	            @XmlElement(name="get-completed-tasks-by-user", type=GetCompletedTasksByUserCommand.class),
 	            @XmlElement(name="get-completed-tasks", type=GetCompletedTasksCommand.class),
-	            @XmlElement(name="get-content", type=GetContentCommand.class),
+	            @XmlElement(name="get-content", type=GetContentByIdCommand.class),
+	            @XmlElement(name="get-content-by-id-for-user", type=GetContentByIdForUserCommand.class),
+	            @XmlElement(name="get-content-map-for-user", type=GetContentMapForUserCommand.class),
 	            @XmlElement(name="get-group", type=GetGroupCommand.class),
 	            @XmlElement(name="get-groups", type=GetGroupsCommand.class),
 	            @XmlElement(name="get-org-entity", type=GetOrgEntityCommand.class),
@@ -79,7 +97,6 @@ public class CompositeCommand<T> extends TaskCommand<T> {
 	            @XmlElement(name="get-task-property", type=GetTaskPropertyCommand.class),
 	            @XmlElement(name="get-tasks-by-process-instance-id", type=GetTasksByProcessInstanceIdCommand.class),
 	            @XmlElement(name="get-tasks-by-status-by-process-instance-id", type=GetTasksByStatusByProcessInstanceIdCommand.class),
-	            @XmlElement(name="get-tasks-by-various-fields", type=GetTasksByVariousFieldsCommand.class),
 	            @XmlElement(name="get-tasks-for-process", type=GetTasksForProcessCommand.class),
 	            @XmlElement(name="get-tasks-owned", type=GetTasksOwnedCommand.class),
 	            @XmlElement(name="get-user", type=GetUserCommand.class),
@@ -101,7 +118,8 @@ public class CompositeCommand<T> extends TaskCommand<T> {
 	            @XmlElement(name="stop-task", type=StopTaskCommand.class),
 	            @XmlElement(name="suspend-task", type=SuspendTaskCommand.class),
 	            @XmlElement(name="undeploy-task-def", type=UndeployTaskDefCommand.class),
-	            @XmlElement(name="task-query", type=TaskQueryDataCommand.class)
+	            @XmlElement(name="task-query", type=TaskSummaryQueryCommand.class),
+	            @XmlElement(name="execute-reminder-command", type=ExecuteReminderCommand.class)
     } )
 	private TaskCommand<T> mainCommand;
 

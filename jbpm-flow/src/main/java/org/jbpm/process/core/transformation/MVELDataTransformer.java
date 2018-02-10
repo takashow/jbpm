@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 JBoss Inc
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +18,7 @@ package org.jbpm.process.core.transformation;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.drools.core.util.MVELSafeHelper;
 import org.kie.api.runtime.process.DataTransformer;
@@ -47,7 +48,7 @@ public class MVELDataTransformer implements DataTransformer {
 		ParserContext context = new ParserContext(config);
 		if (parameters != null) {
 			@SuppressWarnings("unchecked")
-			List<String> imports = (List<String>)parameters.get("imports");
+			Set<String> imports = (Set<String>)parameters.get("imports");
 			if (imports != null) {
 				for(String clazz : imports) {
 					try {

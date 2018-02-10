@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 JBoss Inc
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,11 +18,10 @@ package org.jbpm.runtime.manager.impl.factory;
 import javax.persistence.EntityManagerFactory;
 
 import org.jbpm.runtime.manager.impl.SimpleRuntimeEnvironment;
+import org.jbpm.runtime.manager.impl.identity.UserDataServiceProvider;
 import org.jbpm.services.task.HumanTaskConfigurator;
 import org.jbpm.services.task.HumanTaskServiceFactory;
-import org.kie.api.runtime.manager.RegisterableItemsFactory;
 import org.kie.api.runtime.manager.RuntimeEnvironment;
-import org.kie.api.task.TaskLifeCycleEventListener;
 import org.kie.api.task.TaskService;
 import org.kie.internal.runtime.manager.TaskServiceFactory;
 
@@ -53,14 +52,10 @@ public class LocalTaskServiceFactory implements TaskServiceFactory {
         if (emf != null) {
         	
         	HumanTaskConfigurator configurator = HumanTaskServiceFactory.newTaskServiceConfigurator()
-            		.environment(runtimeEnvironment.getEnvironment())
-            		.entityManagerFactory(emf)                     
-                    .userGroupCallback(runtimeEnvironment.getUserGroupCallback());
-        	// register task listeners if any
-        	RegisterableItemsFactory itemsFactory = runtimeEnvironment.getRegisterableItemsFactory();
-        	for (TaskLifeCycleEventListener taskListener : itemsFactory.getTaskListeners()) {
-        		configurator.listener(taskListener);
-        	}
+                    .environment(runtimeEnvironment.getEnvironment())
+                    .entityManagerFactory(emf)
+                    .userGroupCallback(runtimeEnvironment.getUserGroupCallback())
+                    .userInfo(UserDataServiceProvider.getUserInfo());
         	
             TaskService internalTaskService = configurator.getTaskService();
                                   

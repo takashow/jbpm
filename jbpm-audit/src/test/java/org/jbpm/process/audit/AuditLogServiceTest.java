@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,19 +16,22 @@
 
 package org.jbpm.process.audit;
 
-import static org.jbpm.persistence.util.PersistenceUtil.*;
+import static org.jbpm.persistence.util.PersistenceUtil.JBPM_PERSISTENCE_UNIT_NAME;
+import static org.jbpm.persistence.util.PersistenceUtil.cleanUp;
+import static org.jbpm.persistence.util.PersistenceUtil.createEnvironment;
+import static org.jbpm.persistence.util.PersistenceUtil.setupWithPoolingDataSource;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.HashMap;
 
-import org.jbpm.process.audit.AuditLoggerFactory.Type;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.kie.api.KieBase;
 import org.kie.api.runtime.Environment;
 import org.kie.api.runtime.KieSession;
-import org.kie.internal.KnowledgeBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,25 +56,34 @@ public class AuditLogServiceTest extends AbstractAuditLogServiceTest {
         context = setupWithPoolingDataSource(JBPM_PERSISTENCE_UNIT_NAME);
         
         // load the process
-        KnowledgeBase kbase = createKnowledgeBase();
+        KieBase kbase = createKnowledgeBase();
         // create a new session
         Environment env = createEnvironment(context);
-        session = createKieSession(kbase, env);
+        try {
+            session = createKieSession(kbase, env);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            Assert.fail("Exception thrown while trying to create a session.");
+        }
        
         // working memory logger
-        AbstractAuditLogger dblogger = AuditLoggerFactory.newInstance(Type.JPA, session, null);
+        AbstractAuditLogger dblogger = AuditLoggerFactory.newJPAInstance(session.getEnvironment());
         assertNotNull(dblogger);
         assertTrue(dblogger instanceof JPAWorkingMemoryDbLogger);
         
         auditLogService = new JPAAuditLogService(env);
+        session.addEventListener(dblogger);
     }
 
     @After
-    public void tearDown() throws Exception {
-        cleanUp(context);
-        session.dispose();
+    public void tearDown() throws Exception {        
+        if (session != null) {
+            session.dispose();
+        }
         session = null;
+        auditLogService.clear();
         auditLogService = null;
+        cleanUp(context);
         System.clearProperty("org.jbpm.var.log.length");
     }
 
@@ -109,6 +121,11 @@ public class AuditLogServiceTest extends AbstractAuditLogServiceTest {
     @Test
     public void testLoggerWithCustomVariableLogLength() throws Exception { 
     	runTestLoggerWithCustomVariableLogLength(session, auditLogService);
+    }
+    
+    @Test
+    public void runTestLogger4WithCustomVariableIndexer() throws Exception {
+        runTestLogger4WithCustomVariableIndexer(session, auditLogService);
     }
 
 }

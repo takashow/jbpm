@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,11 +20,10 @@ import org.jboss.arquillian.core.api.annotation.Observes;
 import org.jboss.arquillian.core.spi.LoadableExtension;
 import org.jboss.arquillian.test.spi.event.suite.AfterSuite;
 import org.jboss.arquillian.test.spi.event.suite.BeforeSuite;
-
-import bitronix.tm.resource.jdbc.PoolingDataSource;
+import org.jbpm.test.util.PoolingDataSource;
 
 /**
- * Custom extension for arquillian to setup bitronix data source for all the tests that can be closed properly
+ * Custom extension for arquillian to setup data source for all the tests that can be closed properly
  */
 public class ArquillianTestWrapperExtension implements LoadableExtension {
     @Override
@@ -42,8 +41,6 @@ public class ArquillianTestWrapperExtension implements LoadableExtension {
             
             //NON XA CONFIGS
             ds.setClassName("org.h2.jdbcx.JdbcDataSource");
-            ds.setMaxPoolSize(3);
-            ds.setAllowLocalTransactions(true);
             ds.getDriverProperties().put("user", "sa");
             ds.getDriverProperties().put("password", "sasa");
             ds.getDriverProperties().put("URL", "jdbc:h2:mem:mydb");

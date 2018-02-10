@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,33 +16,33 @@
 
 package org.jbpm.process.audit;
 
-import static org.jbpm.persistence.util.PersistenceUtil.*;
-import static org.junit.Assert.*;
+import static org.jbpm.persistence.util.PersistenceUtil.JBPM_PERSISTENCE_UNIT_NAME;
+import static org.jbpm.persistence.util.PersistenceUtil.cleanUp;
+import static org.jbpm.persistence.util.PersistenceUtil.setupWithPoolingDataSource;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 
 import org.drools.compiler.builder.impl.KnowledgeBuilderImpl;
-import org.drools.core.definitions.InternalKnowledgePackage;
 import org.drools.core.impl.EnvironmentFactory;
+import org.drools.core.impl.InternalKnowledgeBase;
+import org.drools.core.impl.KnowledgeBaseFactory;
 import org.jbpm.test.util.AbstractBaseTest;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.kie.api.KieBase;
 import org.kie.api.runtime.Environment;
 import org.kie.api.runtime.EnvironmentName;
 import org.kie.api.runtime.process.ProcessInstance;
-import org.kie.internal.KnowledgeBase;
-import org.kie.internal.KnowledgeBaseFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import bitronix.tm.BitronixTransactionManager;
-import bitronix.tm.TransactionManagerServices;
 
 /**
  * This class tests the following classes: 
@@ -67,14 +67,14 @@ public abstract class AbstractWorkingMemoryDbLoggerTest extends AbstractBaseTest
 
     @After
     public void tearDown() throws Exception {
-        BitronixTransactionManager txm = TransactionManagerServices.getTransactionManager();
-        assertTrue("There is still a transaction running!", txm.getCurrentTransaction() == null );
+        javax.transaction.TransactionManager txm = com.arjuna.ats.jta.TransactionManager.transactionManager();
+        assertTrue("There is still a transaction running!", txm.getTransaction() == null );
         
         cleanUp(context);
         logService.dispose();
     }
    
-    protected static KnowledgeBase createKnowledgeBase() {
+    protected static KieBase createKnowledgeBase() {
         // create a builder
         KnowledgeBuilderImpl builder = new KnowledgeBuilderImpl();
         // load the process
@@ -85,8 +85,8 @@ public abstract class AbstractWorkingMemoryDbLoggerTest extends AbstractBaseTest
         source = new InputStreamReader(AbstractWorkingMemoryDbLoggerTest.class.getResourceAsStream("/ruleflow3.rf"));
         builder.addProcessFromXml(source);
         // create the knowledge base 
-        KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
-        kbase.addKnowledgePackages((Collection) Arrays.asList(builder.getPackage()));
+        InternalKnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
+        kbase.addPackages(Arrays.asList(builder.getPackages()));
         return kbase;
     }
 

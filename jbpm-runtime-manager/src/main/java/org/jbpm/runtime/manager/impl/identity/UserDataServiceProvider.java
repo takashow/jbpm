@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -48,7 +48,7 @@ import org.kie.internal.task.api.UserInfo;
  * </ul>
  * </li>
  * 	<li>
- * org.jbpm.ht.userinfo - specify what implemenation of UserInfo shall be used, one of:
+ * org.jbpm.ht.userinfo - specify what implementation of UserInfo shall be used, one of:
  * <ul>
  * 	<li>ldap - backed by ldap - requires configuration via jbpm-user.info.properties file</li>
  * 	<li>db - backed by data base - requires configuration via jbpm-user.info.properties file</li>
@@ -101,7 +101,7 @@ public class UserDataServiceProvider {
 			userInfo = new DBUserInfoImpl(true);
 		} else if ("props".equalsIgnoreCase(USER_INFO_IMPL)) {
 			userInfo = new PropertyUserInfoImpl(true);
-		} else if ("custom".equalsIgnoreCase(USER_CALLBACK_IMPL)) {
+		} else if ("custom".equalsIgnoreCase(USER_INFO_IMPL)) {
 			try {
 				userInfo = (UserInfo) Class.forName(CUSTOM_USER_INFO_IMPL).newInstance();
 			} catch (Exception e) {

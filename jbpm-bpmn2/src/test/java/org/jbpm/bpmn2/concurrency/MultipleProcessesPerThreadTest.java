@@ -1,14 +1,33 @@
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jbpm.bpmn2.concurrency;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
+import org.drools.core.impl.InternalKnowledgeBase;
+import org.drools.core.impl.KnowledgeBaseFactory;
 import org.jbpm.bpmn2.objects.Status;
 import org.jbpm.bpmn2.objects.TestWorkItemHandler;
 import org.jbpm.test.util.AbstractBaseTest;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.kie.api.KieBase;
 import org.kie.api.event.process.ProcessCompletedEvent;
 import org.kie.api.event.process.ProcessEventListener;
 import org.kie.api.event.process.ProcessNodeLeftEvent;
@@ -16,15 +35,15 @@ import org.kie.api.event.process.ProcessNodeTriggeredEvent;
 import org.kie.api.event.process.ProcessStartedEvent;
 import org.kie.api.event.process.ProcessVariableChangedEvent;
 import org.kie.api.io.ResourceType;
+import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.process.WorkItem;
-import org.kie.internal.KnowledgeBase;
-import org.kie.internal.KnowledgeBaseFactory;
 import org.kie.internal.builder.KnowledgeBuilder;
 import org.kie.internal.builder.KnowledgeBuilderFactory;
 import org.kie.internal.io.ResourceFactory;
-import org.kie.internal.runtime.StatefulKnowledgeSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.junit.Assert.*;
 
 /**
  * This test costs time and resources, please only run locally for the time being.
@@ -36,8 +55,8 @@ public class MultipleProcessesPerThreadTest extends AbstractBaseTest {
     
     private static final Logger logger = LoggerFactory.getLogger(MultipleProcessesPerThreadTest.class);
     
-    protected static StatefulKnowledgeSession createStatefulKnowledgeSession(KnowledgeBase kbase) {
-        return kbase.newStatefulKnowledgeSession();
+    protected static KieSession createStatefulKnowledgeSession(KieBase kbase) {
+        return kbase.newKieSession();
     }
     
     @Test
@@ -73,13 +92,13 @@ public class MultipleProcessesPerThreadTest extends AbstractBaseTest {
 
         public void run() {
             this.status = Status.SUCCESS;
-            StatefulKnowledgeSession ksession = null;
+            KieSession ksession = null;
             
             try { 
                 KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
                 kbuilder.add(ResourceFactory.newClassPathResource("BPMN2-MultiThreadServiceProcess-Timer.bpmn", getClass()), ResourceType.BPMN2);
-                KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
-                kbase.addKnowledgePackages(kbuilder.getKnowledgePackages());
+                InternalKnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
+                kbase.addPackages(kbuilder.getKnowledgePackages());
 
                 ksession = createStatefulKnowledgeSession(kbase);
             } catch(Exception e) { 
@@ -128,13 +147,13 @@ public class MultipleProcessesPerThreadTest extends AbstractBaseTest {
 
         public void run() {
             this.status = Status.SUCCESS;
-            StatefulKnowledgeSession ksession = null;
+            KieSession ksession = null;
             
             try { 
                 KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
                 kbuilder.add(ResourceFactory.newClassPathResource("BPMN2-MultiThreadServiceProcess-Task.bpmn", getClass()), ResourceType.BPMN2);
-                KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
-                kbase.addKnowledgePackages(kbuilder.getKnowledgePackages());
+                InternalKnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
+                kbase.addPackages(kbuilder.getKnowledgePackages());
 
                 ksession = createStatefulKnowledgeSession(kbase);
             } catch(Exception e) { 

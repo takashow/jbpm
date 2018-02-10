@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 JBoss Inc
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 package org.jbpm.workflow.instance.node;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.jbpm.process.instance.ProcessInstance;
 import org.jbpm.workflow.core.node.EventSubProcessNode;
@@ -47,13 +50,16 @@ public class EventSubProcessNodeInstance extends CompositeContextNodeInstance {
 
     @Override
     public void signalEvent(String type, Object event) {
-        if (getNodeInstanceContainer().getNodeInstances().contains(this) || type.startsWith("Error-")) {
+        if (getNodeInstanceContainer().getNodeInstances().contains(this) || type.startsWith("Error-") || type.equals("timerTriggered") ) {
             StartNode startNode = getCompositeNode().findStartNode();
-            NodeInstance nodeInstance = getNodeInstance(startNode);  
-            ((StartNodeInstance) nodeInstance).signalEvent(type, event);
+            if (resolveVariables(((EventSubProcessNode) getEventBasedNode()).getEvents()).contains(type) || type.equals("timerTriggered")) {
+                NodeInstance nodeInstance = getNodeInstance(startNode);
+                ((StartNodeInstance) nodeInstance).signalEvent(type, event);
+            }
         }
+        super.signalEvent(type, event);
     }
-
+    
     @Override
     public void nodeInstanceCompleted(org.jbpm.workflow.instance.NodeInstance nodeInstance, String outType) {
         if (nodeInstance instanceof EndNodeInstance) { 
@@ -80,5 +86,7 @@ public class EventSubProcessNodeInstance extends CompositeContextNodeInstance {
         }
     }
     
-    
+    protected List<String> resolveVariables(List<String> events) {
+        return events.stream().map( event -> resolveVariable(event)).collect(Collectors.toList());
+    }
 }

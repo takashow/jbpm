@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,10 +18,13 @@ package org.jbpm.process.audit;
 
 import java.util.List;
 
+import org.jbpm.query.jpa.data.QueryWhere;
 import org.kie.api.runtime.manager.audit.AuditService;
-import org.kie.internal.query.data.QueryData;
+import org.kie.internal.runtime.manager.audit.query.NodeInstanceLogDeleteBuilder;
 import org.kie.internal.runtime.manager.audit.query.NodeInstanceLogQueryBuilder;
+import org.kie.internal.runtime.manager.audit.query.ProcessInstanceLogDeleteBuilder;
 import org.kie.internal.runtime.manager.audit.query.ProcessInstanceLogQueryBuilder;
+import org.kie.internal.runtime.manager.audit.query.VariableInstanceLogDeleteBuilder;
 import org.kie.internal.runtime.manager.audit.query.VariableInstanceLogQueryBuilder;
 
 /**
@@ -40,6 +43,8 @@ public interface AuditLogService extends AuditService {
 	@Override
     public List<ProcessInstanceLog> findProcessInstances();
 
+    public List<ProcessInstanceLog> findActiveProcessInstances();
+    
     public List<ProcessInstanceLog> findProcessInstances(String processId);
 
     public List<ProcessInstanceLog> findActiveProcessInstances(String processId);
@@ -80,10 +85,14 @@ public interface AuditLogService extends AuditService {
      * @return a {@link ProcessInstanceLogQueryBuilder} instance
      */
     public ProcessInstanceLogQueryBuilder processInstanceLogQuery();
-   
-    public List<org.kie.api.runtime.manager.audit.NodeInstanceLog> queryNodeInstanceLogs(QueryData queryData);
-
-    public List<org.kie.api.runtime.manager.audit.VariableInstanceLog> queryVariableInstanceLogs(QueryData queryData);
     
-    public List<org.kie.api.runtime.manager.audit.ProcessInstanceLog> queryProcessInstanceLogs(QueryData queryData);
+    public ProcessInstanceLogDeleteBuilder processInstanceLogDelete();
+    
+    public NodeInstanceLogDeleteBuilder nodeInstanceLogDelete();
+    
+    public VariableInstanceLogDeleteBuilder variableInstanceLogDelete();
+  
+    // The query methods should not be available in any public API's
+    public <T,R> List<R> queryLogs(QueryWhere queryWhere, Class<T> queryType, Class<R> resultType);
+
 }

@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,19 +16,19 @@
 
 package org.jbpm.executor.impl.jpa;
 
-import java.util.Date;
-import java.util.List;
-
-import org.drools.core.command.CommandService;
-import org.drools.core.command.impl.GenericCommand;
+import org.drools.core.command.impl.ExecutableCommand;
 import org.jbpm.executor.RequeueAware;
 import org.jbpm.executor.entities.ErrorInfo;
 import org.jbpm.executor.entities.RequestInfo;
-import org.kie.internal.command.Context;
-import org.kie.internal.executor.api.ExecutorAdminService;
-import org.kie.internal.executor.api.STATUS;
+import org.kie.api.executor.ExecutorAdminService;
+import org.kie.api.executor.STATUS;
+import org.kie.api.runtime.CommandExecutor;
+import org.kie.api.runtime.Context;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Date;
+import java.util.List;
 
 /**
  * Default implementation of <code>ExecutorAdminService</code> backed with JPA
@@ -38,12 +38,12 @@ import org.slf4j.LoggerFactory;
 public class ExecutorRequestAdminServiceImpl implements ExecutorAdminService, RequeueAware  {
 
     
-    private CommandService commandService;
+    private CommandExecutor commandService;
    
     public ExecutorRequestAdminServiceImpl() {
     }
 
-    public void setCommandService(CommandService commandService) {
+    public void setCommandService(CommandExecutor commandService ) {
         this.commandService = commandService;
     }
 
@@ -82,7 +82,7 @@ public class ExecutorRequestAdminServiceImpl implements ExecutorAdminService, Re
 		commandService.execute(new RequeueRunningJobCommand(requestId));
 	}
 	
-	private class RequeueRunningJobsCommand implements GenericCommand<Void> {
+	private class RequeueRunningJobsCommand implements ExecutableCommand<Void> {
 
 		private Logger logger = LoggerFactory.getLogger(RequeueRunningJobsCommand.class);
 		private static final long serialVersionUID = 8670412133363766161L;
@@ -126,7 +126,7 @@ public class ExecutorRequestAdminServiceImpl implements ExecutorAdminService, Re
 		
 	}
 	
-	private class RequeueRunningJobCommand implements GenericCommand<Void> {
+	private class RequeueRunningJobCommand implements ExecutableCommand<Void> {
 
 		private Logger logger = LoggerFactory.getLogger(RequeueRunningJobCommand.class);
 		private static final long serialVersionUID = 8670412133363766161L;

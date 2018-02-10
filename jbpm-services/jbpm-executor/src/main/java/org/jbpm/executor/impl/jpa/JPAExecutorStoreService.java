@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,20 +16,20 @@
 
 package org.jbpm.executor.impl.jpa;
 
-import java.util.HashMap;
-import java.util.Map;
+import org.drools.core.command.impl.ExecutableCommand;
+import org.jbpm.executor.ExecutorServiceFactory;
+import org.jbpm.executor.impl.event.ExecutorEventSupport;
+import org.kie.api.executor.ErrorInfo;
+import org.kie.api.executor.ExecutorStoreService;
+import org.kie.api.executor.RequestInfo;
+import org.kie.api.executor.STATUS;
+import org.kie.api.runtime.CommandExecutor;
+import org.kie.api.runtime.Context;
 
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.NoResultException;
-
-import org.drools.core.command.CommandService;
-import org.drools.core.command.impl.GenericCommand;
-import org.jbpm.executor.ExecutorServiceFactory;
-import org.kie.internal.command.Context;
-import org.kie.internal.executor.api.ErrorInfo;
-import org.kie.internal.executor.api.ExecutorStoreService;
-import org.kie.internal.executor.api.RequestInfo;
-import org.kie.internal.executor.api.STATUS;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * 
@@ -39,13 +39,20 @@ import org.kie.internal.executor.api.STATUS;
 public class JPAExecutorStoreService implements ExecutorStoreService{
 	
 	private EntityManagerFactory emf;
-    private CommandService commandService;
+    private CommandExecutor commandService;
     
+    private ExecutorEventSupport eventSupport = new ExecutorEventSupport();
+
+
     public JPAExecutorStoreService(boolean active) {
     	
     }
+        
+    public void setEventSupport(ExecutorEventSupport eventSupport) {
+        this.eventSupport = eventSupport;
+    }
     
-    public void setCommandService(CommandService commandService) {
+    public void setCommandService(CommandExecutor commandService ) {
         this.commandService = commandService;
     }
 
@@ -72,7 +79,7 @@ public class JPAExecutorStoreService implements ExecutorStoreService{
 
 	@Override
 	public RequestInfo findRequest(Long id) {
-		return commandService.execute(new org.jbpm.shared.services.impl.commands.FindObjectCommand<RequestInfo>(id, RequestInfo.class));
+		return commandService.execute(new org.jbpm.shared.services.impl.commands.FindObjectCommand<org.jbpm.executor.entities.RequestInfo>(id, org.jbpm.executor.entities.RequestInfo.class));
 	}
 
 	@Override
@@ -101,11 +108,11 @@ public class JPAExecutorStoreService implements ExecutorStoreService{
 
 	@Override
 	public Runnable buildExecutorRunnable() {
-		return ExecutorServiceFactory.buildRunable(emf);
+		return ExecutorServiceFactory.buildRunable(emf, eventSupport);
 	}
 
 
-    private class LockAndCancelRequestInfoCommand implements GenericCommand<RequestInfo> {
+    private class LockAndCancelRequestInfoCommand implements ExecutableCommand<RequestInfo> {
 
 		private static final long serialVersionUID = 8670412133363766161L;
 

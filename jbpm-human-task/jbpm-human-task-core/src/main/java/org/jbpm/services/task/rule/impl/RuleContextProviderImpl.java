@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -53,7 +53,7 @@ public class RuleContextProviderImpl implements RuleContextProvider {
             KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
             kbuilder.add(addTask, ResourceType.DRL);
             
-            kieBases.put(TaskRuleService.ADD_TASK_SCOPE, kbuilder.newKnowledgeBase());
+            kieBases.put(TaskRuleService.ADD_TASK_SCOPE, kbuilder.newKieBase());
         } catch (Exception e) {
             
         }
@@ -62,7 +62,7 @@ public class RuleContextProviderImpl implements RuleContextProvider {
             KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
             kbuilder.add(completeTask, ResourceType.DRL);
             
-            kieBases.put(TaskRuleService.COMPLETE_TASK_SCOPE, kbuilder.newKnowledgeBase());
+            kieBases.put(TaskRuleService.COMPLETE_TASK_SCOPE, kbuilder.newKieBase());
         } catch (Exception e) {
             
         }

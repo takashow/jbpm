@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,6 +32,8 @@ import org.slf4j.LoggerFactory;
 
 public class JBossUserGroupCallbackImpl extends AbstractUserGroupInfo implements UserGroupCallback {
 	
+	private String separator;
+
 	private static final Logger logger = LoggerFactory.getLogger(JBossUserGroupCallbackImpl.class);
 
 	private static final String DEFAULT_PROPERTIES_LOCATION = "file:" + System.getProperty("jboss.server.config.dir") + "/roles.properties";
@@ -60,13 +62,16 @@ public class JBossUserGroupCallbackImpl extends AbstractUserGroupInfo implements
 		if (userGroups == null) {
 			throw new IllegalArgumentException("UserGroups properties cannot be null");
 		}
+		this.separator = System.getProperty("org.jbpm.ht.user.separator", ",");
+	        
+
 		List<String> groups = null;
 		Iterator<Object> it = userGroups.keySet().iterator();
 		
 		while (it.hasNext()) {
 			String userId = (String) it.next();
 			
-			groups = Arrays.asList(userGroups.getProperty(userId, "").split(","));
+			groups = Arrays.asList(userGroups.getProperty(userId, "").split(separator));
 			groupStore.put(userId, groups);
 			allgroups.addAll(groups);
 			
@@ -88,8 +93,7 @@ public class JBossUserGroupCallbackImpl extends AbstractUserGroupInfo implements
 		return allgroups.contains(groupId);
 	}
 	
-	public List<String> getGroupsForUser(String userId, List<String> groupIds,
-			List<String> allExistingGroupIds) {
+	public List<String> getGroupsForUser(String userId) {
 		
 		List<String> groups = groupStore.get(userId);
 		if( groups == null ) { 

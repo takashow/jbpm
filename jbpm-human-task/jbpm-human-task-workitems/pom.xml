@@ -6,13 +6,17 @@
   <parent>
     <groupId>org.jbpm</groupId>
     <artifactId>jbpm-human-task</artifactId>
-    <version>6.3.0-SNAPSHOT</version>
+    <version>7.7.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>jbpm-human-task-workitems</artifactId>
   <packaging>bundle</packaging>
 
   <name>jBPM :: Human Task WorkItems</name>
+
+  <properties>
+    <java.module.name>org.jbpm.services.task.wih</java.module.name>
+  </properties>
 
   <dependencies>
     <dependency>
@@ -49,7 +53,11 @@
     </dependency>    
 
     <!--test-->
-
+    <dependency>
+      <groupId>org.jbpm</groupId>
+      <artifactId>jbpm-test-util</artifactId>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>org.hibernate</groupId>
       <artifactId>hibernate-entitymanager</artifactId>
@@ -65,14 +73,21 @@
       <artifactId>hibernate-validator</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- javax.el required by hibernate-validator -->
+    <dependency>
+      <groupId>org.jboss.spec.javax.el</groupId>
+      <artifactId>jboss-el-api_3.0_spec</artifactId>
+      <scope>test</scope>
+    </dependency>
+
     <dependency>
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.codehaus.btm</groupId>
-      <artifactId>btm</artifactId>
+      <groupId>org.jboss.narayana.jta</groupId>
+      <artifactId>narayana-jta</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -127,12 +142,10 @@
         <artifactId>maven-bundle-plugin</artifactId>
         <configuration>
           <instructions>
-            <Bundle-SymbolicName>org.jbpm.services.task.wih</Bundle-SymbolicName>
             <Import-Package>
               !org.jbpm.services.task.wih,
               *
             </Import-Package>
-            <Private-Package></Private-Package>
             <Export-Package>
               org.jbpm.services.task.wih*
             </Export-Package>

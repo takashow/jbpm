@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,13 +20,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
-import org.drools.core.process.core.datatype.DataType;
-import org.drools.core.process.core.datatype.impl.type.BooleanDataType;
-import org.drools.core.process.core.datatype.impl.type.FloatDataType;
-import org.drools.core.process.core.datatype.impl.type.IntegerDataType;
-import org.drools.core.process.core.datatype.impl.type.ObjectDataType;
-import org.drools.core.process.core.datatype.impl.type.StringDataType;
-import org.drools.core.process.core.datatype.impl.type.UndefinedDataType;
+import org.jbpm.process.core.datatype.DataType;
+import org.jbpm.process.core.datatype.impl.type.BooleanDataType;
+import org.jbpm.process.core.datatype.impl.type.FloatDataType;
+import org.jbpm.process.core.datatype.impl.type.IntegerDataType;
+import org.jbpm.process.core.datatype.impl.type.ObjectDataType;
+import org.jbpm.process.core.datatype.impl.type.StringDataType;
+import org.jbpm.process.core.datatype.impl.type.UndefinedDataType;
 import org.drools.core.xml.BaseAbstractHandler;
 import org.drools.core.xml.ExtensibleXmlParser;
 import org.drools.core.xml.Handler;
@@ -40,6 +40,7 @@ import org.jbpm.process.core.context.variable.Variable;
 import org.jbpm.process.core.context.variable.VariableScope;
 import org.jbpm.ruleflow.core.RuleFlowProcess;
 import org.jbpm.workflow.core.NodeContainer;
+import org.jbpm.workflow.core.node.ForEachNode;
 import org.jbpm.workflow.core.node.WorkItemNode;
 import org.kie.api.definition.process.Node;
 import org.kie.api.definition.process.Process;
@@ -83,7 +84,7 @@ public class DefinitionsHandler extends BaseAbstractHandler implements Handler {
         for (Process process : processes) {
             RuleFlowProcess ruleFlowProcess = (RuleFlowProcess)process;
             ruleFlowProcess.setMetaData("TargetNamespace", namespace);
-            postProcessItemDefinitions(ruleFlowProcess, itemDefinitions);
+            postProcessItemDefinitions(ruleFlowProcess, itemDefinitions, parser.getClassLoader());
             postProcessInterfaces(ruleFlowProcess, interfaces);
         }
         definitions.setTargetNamespace(namespace);
@@ -137,31 +138,36 @@ public class DefinitionsHandler extends BaseAbstractHandler implements Handler {
 		}
 	}
 	
-	private void postProcessItemDefinitions(NodeContainer nodeContainer, Map<String, ItemDefinition> itemDefinitions) {
+	private void postProcessItemDefinitions(NodeContainer nodeContainer, Map<String, ItemDefinition> itemDefinitions, ClassLoader cl) {
 		if (nodeContainer instanceof ContextContainer) {
-			setVariablesDataType((ContextContainer) nodeContainer, itemDefinitions);
+			setVariablesDataType((ContextContainer) nodeContainer, itemDefinitions, cl);
+		}
+		// process composite context node of for each to enhance its variables with types
+		if (nodeContainer instanceof ForEachNode) {
+		    setVariablesDataType(((ForEachNode) nodeContainer).getCompositeNode(), itemDefinitions, cl);
 		}
 		for (Node node: nodeContainer.getNodes()) {
 			if (node instanceof NodeContainer) {
-				postProcessItemDefinitions((NodeContainer) node, itemDefinitions);
+				postProcessItemDefinitions((NodeContainer) node, itemDefinitions, cl);
 			}
 			if (node instanceof ContextContainer) {
-				setVariablesDataType((ContextContainer) node, itemDefinitions);
+				setVariablesDataType((ContextContainer) node, itemDefinitions, cl);
 			}
 		}
 	}
 	
-	private void setVariablesDataType(ContextContainer container, Map<String, ItemDefinition> itemDefinitions) {
+	private void setVariablesDataType(ContextContainer container, Map<String, ItemDefinition> itemDefinitions, ClassLoader cl) {
 		VariableScope variableScope = (VariableScope) container.getDefaultContext(VariableScope.VARIABLE_SCOPE);
 		if (variableScope != null) {
 			for (Variable variable: variableScope.getVariables()) {
-				setVariableDataType(variable, itemDefinitions);
+				setVariableDataType(variable, itemDefinitions, cl);
 			}
 		}
 	}
 	
-	private void setVariableDataType(Variable variable, Map<String, ItemDefinition> itemDefinitions) {
+	private void setVariableDataType(Variable variable, Map<String, ItemDefinition> itemDefinitions, ClassLoader cl) {
 		// retrieve type from item definition
+		
 		String itemSubjectRef = (String) variable.getMetaData("ItemSubjectRef");
         if (UndefinedDataType.getInstance().equals(variable.getType()) && itemDefinitions != null && itemSubjectRef != null) {
     		DataType dataType = new ObjectDataType();
@@ -182,10 +188,11 @@ public class DefinitionsHandler extends BaseAbstractHandler implements Handler {
                     dataType = new StringDataType();
                     
                 } else if ("java.lang.Object".equals(structureRef) || "Object".equals(structureRef)) {
-                    dataType = new ObjectDataType(structureRef);
+                	// use FQCN of Object
+                    dataType = new ObjectDataType("java.lang.Object");
                     
                 } else {
-                    dataType = new ObjectDataType(structureRef);
+                    dataType = new ObjectDataType(structureRef, cl);
                 }
         		
         	}

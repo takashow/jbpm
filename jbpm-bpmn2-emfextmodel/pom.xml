@@ -7,7 +7,7 @@
   <parent>
     <groupId>org.jbpm</groupId>
     <artifactId>jbpm</artifactId>
-    <version>6.3.0-SNAPSHOT</version>
+    <version>7.7.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>jbpm-bpmn2-emfextmodel</artifactId>
@@ -16,16 +16,46 @@
   <name>jBPM :: BPMN2 EMF Extension Model</name>
   <description>jBPM BPMN2 EMF Extension Model</description>
 
+  <properties>
+    <java.module.name>org.jbpm.bpmn2.emfextmodel</java.module.name>
+  </properties>
+
   <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-javadoc-plugin</artifactId>
+          <configuration>
+            <tags>
+              <tag>
+                <name>generated</name>
+                <placement>a</placement>
+                <head>Generated code</head>
+              </tag>
+              <tag>
+                <name>model</name>
+                <placement>a</placement>
+                <head>Model</head>
+              </tag>
+              <tag>
+                <name>ordered</name>
+                <placement>a</placement>
+                <head>Ordered</head>
+              </tag>
+            </tags>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
     <plugins>
       <plugin>
         <groupId>org.apache.felix</groupId>
         <artifactId>maven-bundle-plugin</artifactId>
         <configuration>
           <instructions>
-            <Bundle-SymbolicName>org.jbpm.bpmn2.emfextmodel;singleton:=true</Bundle-SymbolicName>
             <Export-Package>
-              org.jboss.drools.*
+              org.jbpm.bpmn2.emfextmodel.*
             </Export-Package>
           </instructions>
         </configuration>

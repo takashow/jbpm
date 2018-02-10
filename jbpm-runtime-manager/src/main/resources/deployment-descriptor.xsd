@@ -77,6 +77,7 @@
           </xs:sequence>
         </xs:complexType>
       </xs:element>
+      <xs:element name="limit-serialization-classes" type="xs:boolean" minOccurs="0"/>
     </xs:sequence>
   </xs:complexType>
 
@@ -124,6 +125,7 @@
       <xs:enumeration value="SINGLETON"/>
       <xs:enumeration value="PER_REQUEST"/>
       <xs:enumeration value="PER_PROCESS_INSTANCE"/>
+      <xs:enumeration value="PER_CASE"/>
     </xs:restriction>
   </xs:simpleType>
 </xs:schema>

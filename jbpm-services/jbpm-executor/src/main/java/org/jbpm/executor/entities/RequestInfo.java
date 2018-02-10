@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -37,7 +37,8 @@ import javax.persistence.SequenceGenerator;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 
-import org.kie.internal.executor.api.STATUS;
+import org.kie.api.executor.STATUS;
+
 
 @Entity
 @SequenceGenerator(name="requestInfoIdSeq", sequenceName="REQUEST_INFO_ID_SEQ")
@@ -65,10 +66,14 @@ public class RequestInfo implements org.kie.internal.executor.api.RequestInfo, S
     private String deploymentId;
     // owning component of this request, meaning when set only same component can execute it 
     private String owner;
+    private int priority = 0;
+    private Long processInstanceId;
     
     @Lob
+    @Column(length=2147483647)
     private byte[] requestData;
     @Lob
+    @Column(length=2147483647)
     private byte[] responseData;
     @OneToMany(cascade= CascadeType.ALL, mappedBy="requestInfo", fetch=FetchType.EAGER)
     private List<ErrorInfo> errorInfo = new ArrayList<ErrorInfo>();
@@ -180,9 +185,25 @@ public class RequestInfo implements org.kie.internal.executor.api.RequestInfo, S
 	public void setOwner(String owner) {
 		this.owner = owner;
 	}
+	
+    public int getPriority() {
+        return priority;
+    }
+    
+    public void setPriority(int priority) {
+        this.priority = priority;
+    }
+    
+    public Long getProcessInstanceId() {
+        return processInstanceId;
+    }
 
+    
+    public void setProcessInstanceId(Long processInstanceId) {
+        this.processInstanceId = processInstanceId;
+    }
 
-	@Override
+    @Override
     public String toString() {
         return "RequestInfo{" + "id=" + id + ", time=" + time 
         		+ ", status=" + status + ", commandName=" + commandName + ", message=" + message + ", owner=" + owner
@@ -223,6 +244,9 @@ public class RequestInfo implements org.kie.internal.executor.api.RequestInfo, S
         if ((this.deploymentId == null) ? (other.deploymentId != null) : !this.deploymentId.equals(other.deploymentId)) {
             return false;
         }
+        if ((this.processInstanceId == null) ? (other.processInstanceId != null) : !this.processInstanceId.equals(other.processInstanceId)) {
+            return false;
+        }
         if (!Arrays.equals(this.requestData, other.requestData)) {
             return false;
         }
@@ -246,6 +270,7 @@ public class RequestInfo implements org.kie.internal.executor.api.RequestInfo, S
         hash = 79 * hash + (this.key != null ? this.key.hashCode() : 0);
         hash = 79 * hash + (this.owner != null ? this.owner.hashCode() : 0);
         hash = 79 * hash + (this.deploymentId != null ? this.deploymentId.hashCode() : 0);
+        hash = 79 * hash + (this.processInstanceId != null ? this.processInstanceId.hashCode() : 0);
         hash = 79 * hash + Arrays.hashCode(this.requestData);
         hash = 79 * hash + Arrays.hashCode(this.responseData);
         hash = 79 * hash + (this.errorInfo != null ? this.errorInfo.hashCode() : 0);

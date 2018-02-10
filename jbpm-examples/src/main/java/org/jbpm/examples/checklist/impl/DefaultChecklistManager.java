@@ -1,3 +1,19 @@
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jbpm.examples.checklist.impl;
 
 import java.util.ArrayList;
@@ -12,22 +28,21 @@ import org.jbpm.examples.checklist.ChecklistContext;
 import org.jbpm.examples.checklist.ChecklistContextConstraint;
 import org.jbpm.examples.checklist.ChecklistItem;
 import org.jbpm.examples.checklist.ChecklistManager;
-import org.jbpm.runtime.manager.impl.SimpleRuntimeEnvironment;
 import org.kie.api.definition.process.WorkflowProcess;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.manager.RuntimeEngine;
+import org.kie.api.runtime.manager.RuntimeEnvironment;
+import org.kie.api.runtime.manager.RuntimeEnvironmentBuilder;
 import org.kie.api.runtime.manager.RuntimeManager;
+import org.kie.api.runtime.manager.RuntimeManagerFactory;
+import org.kie.api.runtime.manager.audit.NodeInstanceLog;
 import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.api.task.TaskService;
+import org.kie.api.task.model.Group;
 import org.kie.api.task.model.I18NText;
 import org.kie.api.task.model.OrganizationalEntity;
-import org.kie.api.task.model.PeopleAssignments;
-import org.kie.api.task.model.Status;
 import org.kie.api.task.model.Task;
 import org.kie.api.task.model.User;
-import org.kie.api.task.model.Group;
-import org.kie.internal.runtime.manager.RuntimeEnvironment;
-import org.kie.internal.runtime.manager.RuntimeManagerFactory;
 import org.kie.internal.runtime.manager.context.EmptyContext;
 import org.kie.internal.task.api.InternalTaskService;
 import org.kie.internal.task.api.TaskModelProvider;
@@ -79,6 +94,7 @@ public class DefaultChecklistManager implements ChecklistManager {
 		return results;
 	}
 	
+	@SuppressWarnings("unchecked")
 	public List<ChecklistItem> getTasks(long processInstanceId) {
 		RuntimeEngine runtime = getRuntime();
 		KieSession ksession = runtime.getKieSession();
@@ -88,7 +104,7 @@ public class DefaultChecklistManager implements ChecklistManager {
 			WorkflowProcess process = (WorkflowProcess)
 				ksession.getKieBase().getProcess(processInstance.getProcessId());
 			Collection<ChecklistItem> result = ChecklistItemFactory.getPendingChecklistItems(process);
-			result.addAll(ChecklistItemFactory.getLoggedChecklistItems(processInstance.getId(), process));
+			result.addAll(ChecklistItemFactory.getLoggedChecklistItems(process, (List<NodeInstanceLog>) runtime.getAuditService().findNodeInstances(processInstance.getId())));
 			for (ChecklistItem item: result) {
 				if (item.getOrderingNb() != null && item.getOrderingNb().trim().length() > 0) { 
 					orderingIds.put(item.getOrderingNb(), item);
@@ -138,6 +154,7 @@ public class DefaultChecklistManager implements ChecklistManager {
         taskData.setProcessInstanceId(processInstanceId);
         // taskData.setProcessSessionId(sessionId);
         taskData.setSkipable(false);
+        taskData.setDeploymentId("default-singleton");
         User cuser = TaskModelProvider.getFactory().newUser();
     	((InternalOrganizationalEntity) cuser).setId(userId); 
         taskData.setCreatedBy(cuser);
@@ -274,7 +291,7 @@ public class DefaultChecklistManager implements ChecklistManager {
 	protected RuntimeEngine getRuntime() {
 		if (manager == null) {
 			if (environment == null) {
-				environment = new SimpleRuntimeEnvironment();
+				environment = RuntimeEnvironmentBuilder.Factory.get().newDefaultBuilder().get();
 			}
 			manager = RuntimeManagerFactory.Factory.get().newSingletonRuntimeManager(environment);        
 		}

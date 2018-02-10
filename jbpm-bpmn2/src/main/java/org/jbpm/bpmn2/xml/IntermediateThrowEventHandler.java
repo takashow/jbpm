@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,17 +16,15 @@
 
 package org.jbpm.bpmn2.xml;
 
-import static org.jbpm.bpmn2.xml.ProcessHandler.*;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import org.drools.core.rule.builder.dialect.asm.GeneratorHelper.GetMethodBytecodeMethod;
 import org.drools.core.xml.ExtensibleXmlParser;
 import org.jbpm.bpmn2.core.Escalation;
 import org.jbpm.bpmn2.core.IntermediateLink;
 import org.jbpm.bpmn2.core.Message;
+import org.jbpm.bpmn2.core.Signal;
 import org.jbpm.compiler.xml.ProcessBuildData;
 import org.jbpm.process.core.impl.DataTransformerRegistry;
 import org.jbpm.ruleflow.core.RuleFlowProcess;
@@ -44,7 +42,7 @@ import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 
 public class IntermediateThrowEventHandler extends AbstractNodeHandler {
-	
+
 	private DataTransformerRegistry transformerRegistry = DataTransformerRegistry.get();
 
 	public static final String LINK_NAME = "linkName";
@@ -92,6 +90,7 @@ public class IntermediateThrowEventHandler extends AbstractNodeHandler {
 				NodeContainer nodeContainer = (NodeContainer) parser
 						.getParent();
 				nodeContainer.addNode(linkNode);
+				((ProcessBuildData) parser.getData()).addNode(node);
 				// we break the while and stop the execution of this method.
 				return linkNode;
 			}
@@ -115,7 +114,7 @@ public class IntermediateThrowEventHandler extends AbstractNodeHandler {
 		NamedNodeMap linkAttr = xmlLinkNode.getAttributes();
 		String name = linkAttr.getNamedItem("name").getNodeValue();
 
-		
+
 		String id = element.getAttribute("id");
 		node.setMetaData("UniqueId", id);
 		node.setMetaData(LINK_NAME, name);
@@ -192,10 +191,22 @@ public class IntermediateThrowEventHandler extends AbstractNodeHandler {
             } else if ("dataInputAssociation".equals(nodeName)) {
 				readDataInputAssociation(xmlNode, actionNode);
 			} else if ("signalEventDefinition".equals(nodeName)) {
-				String signalName = ((Element) xmlNode)
-						.getAttribute("signalRef");
-				String variable = (String) actionNode
-						.getMetaData("MappingVariable");
+				String signalName = ((Element) xmlNode).getAttribute("signalRef");
+				String variable = (String) actionNode.getMetaData("MappingVariable");
+
+				signalName = checkSignalAndConvertToRealSignalNam(parser, signalName);
+
+                actionNode.setMetaData("EventType", "signal");
+                actionNode.setMetaData("Ref", signalName);
+                actionNode.setMetaData("Variable", variable);
+
+				// check if signal should be send async
+				if (dataInputs.containsValue("async")) {
+				    signalName = "ASYNC-" + signalName;
+				}
+
+				String signalExpression = getSignalExpression(actionNode, signalName, "tVariable");
+
 				actionNode
 						.setAction(new DroolsConsequenceAction(
 								"java",
@@ -205,17 +216,13 @@ public class IntermediateThrowEventHandler extends AbstractNodeHandler {
 								+ "  tVariable = new org.jbpm.process.core.event.EventTransformerImpl(transformation)"
 								+ "  .transformEvent("+(variable == null ? "null" : variable)+");"
 								+ "}"+
-								RUNTIME_SIGNAL_EVENT 
-										+ signalName
-										+ "\", "
-										+ "tVariable"
-										+ ");"));
+								signalExpression));
 			}
 			xmlNode = xmlNode.getNextSibling();
 		}
 	}
 
-	@SuppressWarnings("unchecked")
+    @SuppressWarnings("unchecked")
 	public void handleMessageNode(final Node node, final Element element,
 			final String uri, final String localName,
 			final ExtensibleXmlParser parser) throws SAXException {
@@ -268,6 +275,8 @@ public class IntermediateThrowEventHandler extends AbstractNodeHandler {
 										+ EOL
 										+ "workItem.setNodeId(kcontext.getNodeInstance().getNodeId());"
 										+ EOL
+										+ "workItem.setDeploymentId((String) kcontext.getKnowledgeRuntime().getEnvironment().get(\"deploymentId\"));"
+										+ EOL
 										+ (variable == null ? ""
 												: "workItem.setParameter(\"Message\", tVariable);" + EOL)
 										+ "((org.drools.core.process.instance.WorkItemManager) kcontext.getKnowledgeRuntime().getWorkItemManager()).internalExecuteWorkItem(workItem);"));
@@ -302,6 +311,7 @@ public class IntermediateThrowEventHandler extends AbstractNodeHandler {
 								"Could not find escalation " + escalationRef);
 					}
 					String faultName = escalation.getEscalationCode();
+					String variable = (String) actionNode.getMetaData("MappingVariable");
 					actionNode
 							.setAction(new DroolsConsequenceAction(
 									"java",
@@ -311,15 +321,21 @@ public class IntermediateThrowEventHandler extends AbstractNodeHandler {
 											+ EOL
 											+ "if (scopeInstance != null) {"
 											+ EOL
+											+ " Object tVariable = "+ (variable == null ? "null" : variable)+";"
+											+ "org.jbpm.workflow.core.node.Transformation transformation = (org.jbpm.workflow.core.node.Transformation)kcontext.getNodeInstance().getNode().getMetaData().get(\"Transformation\");"
+											+ "if (transformation != null) {"
+											+ "  tVariable = new org.jbpm.process.core.event.EventTransformerImpl(transformation)"
+											+ "  .transformEvent("+(variable == null ? "null" : variable)+");"
+											+ "}"
 											+ "  scopeInstance.handleException(\""
 											+ faultName
-											+ "\", null);"
+											+ "\", tVariable);"
 											+ EOL
 											+ "} else {"
 											+ EOL
 											+ "    ((org.jbpm.process.instance.ProcessInstance) kcontext.getProcessInstance()).setState(org.jbpm.process.instance.ProcessInstance.STATE_ABORTED);"
 											+ EOL + "}"));
-				} else { 
+				} else {
 				    throw new IllegalArgumentException("General escalation is not yet supported");
 				}
 			}
@@ -341,15 +357,15 @@ public class IntermediateThrowEventHandler extends AbstractNodeHandler {
 		if (subNode != null && "transformation".equals(subNode.getNodeName())) {
 			String lang = subNode.getAttributes().getNamedItem("language").getNodeValue();
 			String expression = subNode.getTextContent();
-			
+
 			DataTransformer transformer = transformerRegistry.find(lang);
 			if (transformer == null) {
 				throw new IllegalArgumentException("No transformer registered for language " + lang);
-			}    			
+			}
 			transformation = new Transformation(lang, expression, dataInputs.get(target));
-			actionNode.setMetaData("Transformation", transformation);		
+			actionNode.setMetaData("Transformation", transformation);
 		}
-		
+
 		if (eventVariable != null && eventVariable.trim().length() > 0) {
 			actionNode.setMetaData("MappingVariable", eventVariable);
 		}

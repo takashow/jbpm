@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,32 +15,22 @@
  */
 package org.jbpm.services.task.commands;
 
-import java.util.List;
+import org.drools.core.command.impl.ExecutableCommand;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlSchemaType;
-
-import org.drools.core.command.impl.GenericCommand;
+import java.util.List;
 
 /**
  *
  */
 @XmlAccessorType(XmlAccessType.FIELD)
-public abstract class TaskCommand<T> implements GenericCommand<T> {
+public abstract class TaskCommand<T> implements ExecutableCommand<T> {
 
 	private static final long serialVersionUID = -8814813191723981179L;
 	
-	public static final int FAULT_PROPERTY = 1;
-	public static final int OUTPUT_PROPERTY = 2;
-	public static final int PRIORITY_PROPERTY = 3;
-	public static final int TASK_NAMES_PROPERTY = 4;
-	public static final int EXPIRATION_DATE_PROPERTY = 5;
-	public static final int DESCRIPTION_PROPERTY = 6;
-	public static final int SKIPPABLE_PROPERTY = 7;
-	public static final int SUB_TASK_STRATEGY_PROPERTY = 8;
-
 	@XmlElement(name="task-id")
     @XmlSchemaType(name="long")
     protected Long taskId;

@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,17 +26,19 @@ import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.jbpm.kie.services.impl.store.DeploymentStore;
 import org.jbpm.kie.services.test.DeploymentServiceWithSyncTest;
+import org.jbpm.kie.services.test.objects.CoundDownDeploymentListener;
 import org.jbpm.services.api.DefinitionService;
 import org.jbpm.services.api.DeploymentService;
 import org.jbpm.services.api.ProcessService;
 import org.jbpm.services.api.RuntimeDataService;
 import org.jbpm.services.api.UserTaskService;
+import org.jbpm.services.cdi.test.util.CountDownDeploymentListenerCDIImpl;
 import org.jbpm.shared.services.impl.TransactionalCommandService;
 import org.junit.runner.RunWith;
 
 @RunWith(Arquillian.class)
 public class DeploymentServiceCDIImplWithSyncTest extends DeploymentServiceWithSyncTest {
-	
+   
 	@Deployment()
     public static Archive<?> createDeployment() {
         return ShrinkWrap.create(JavaArchive.class, "domain-services.jar")                
@@ -60,6 +62,7 @@ public class DeploymentServiceCDIImplWithSyncTest extends DeploymentServiceWithS
                 .addPackage("org.jbpm.services.task.subtask")
                 .addPackage("org.jbpm.services.task.rule")
                 .addPackage("org.jbpm.services.task.rule.impl")
+                .addPackage("org.jbpm.services.task.audit.service")
 
                 .addPackage("org.kie.internal.runtime.manager")
                 .addPackage("org.kie.internal.runtime.manager.context")
@@ -86,18 +89,26 @@ public class DeploymentServiceCDIImplWithSyncTest extends DeploymentServiceWithS
                 .addPackage("org.jbpm.kie.services.impl.form")
                 .addPackage("org.jbpm.kie.services.impl.store")
                 .addPackage("org.jbpm.kie.services.impl.form.provider")
+                .addPackage("org.jbpm.kie.services.impl.query")  
+                .addPackage("org.jbpm.kie.services.impl.query.mapper")  
+                .addPackage("org.jbpm.kie.services.impl.query.persistence")  
+                .addPackage("org.jbpm.kie.services.impl.query.preprocessor")  
                 
                 .addPackage("org.jbpm.services.cdi")
                 .addPackage("org.jbpm.services.cdi.impl")
                 .addPackage("org.jbpm.services.cdi.impl.form")
                 .addPackage("org.jbpm.services.cdi.impl.manager")
-                .addPackage("org.jbpm.services.cdi.impl.store")
                 .addPackage("org.jbpm.services.cdi.producer")
+                .addPackage("org.jbpm.services.cdi.impl.security")
+                .addPackage("org.jbpm.services.cdi.impl.store")
+                .addPackage("org.jbpm.services.cdi.impl.query")
                 
                 .addPackage("org.jbpm.test.util")
                 .addPackage("org.jbpm.kie.services.test")
                 .addPackage("org.jbpm.services.cdi.test") // Identity Provider Test Impl here
                 .addClass("org.jbpm.services.cdi.test.util.CDITestHelperNoTaskService")
+                .addClass("org.jbpm.services.cdi.test.util.CountDownDeploymentListenerCDIImpl")
+                .addClass("org.jbpm.kie.services.test.objects.CoundDownDeploymentListener")
                 .addAsResource("jndi.properties", "jndi.properties")
                 .addAsManifestResource("META-INF/persistence.xml", ArchivePaths.create("persistence.xml"))
                 .addAsManifestResource("META-INF/beans.xml", ArchivePaths.create("beans.xml"));
@@ -113,14 +124,29 @@ public class DeploymentServiceCDIImplWithSyncTest extends DeploymentServiceWithS
 	protected void configureServices() {
 		// do nothing here and let CDI configure services 
 	}
-	
 
 	@Override
+    protected CoundDownDeploymentListener configureListener(int threads, boolean deploy, boolean undeploy, boolean activate, boolean deactivate) {
+        countDownListner.reset(threads);
+        countDownListner.setDeploy(deploy);
+        countDownListner.setUndeploy(undeploy);
+        countDownListner.setActivate(activate);
+        countDownListner.setDeactivate(deactivate);
+	    
+        return countDownListner;
+    }
+
+    @Override
 	protected void configureDeploymentSync() {
 		store = new DeploymentStore();
 		store.setCommandService(commandService);
 	}
 
+    
+    @Inject
+    private CountDownDeploymentListenerCDIImpl countDownListner;
+    
+    
 	@Inject	
 	@Override
 	public void setDeploymentService(DeploymentService deploymentService) {
@@ -161,6 +187,5 @@ public class DeploymentServiceCDIImplWithSyncTest extends DeploymentServiceWithS
 	public void setCommandService(TransactionalCommandService commandService) {
 		super.setCommandService(commandService);
 	}
-
 	
 }

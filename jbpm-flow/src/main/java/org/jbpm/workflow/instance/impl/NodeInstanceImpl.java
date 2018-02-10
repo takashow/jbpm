@@ -1,11 +1,11 @@
-/**
- * Copyright 2005 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -40,33 +40,39 @@ import org.jbpm.process.instance.context.exclusive.ExclusiveGroupInstance;
 import org.jbpm.process.instance.context.variable.VariableScopeInstance;
 import org.jbpm.process.instance.impl.Action;
 import org.jbpm.process.instance.impl.ConstraintEvaluator;
+import org.jbpm.process.instance.impl.NoOpExecutionErrorHandler;
 import org.jbpm.workflow.core.impl.NodeImpl;
 import org.jbpm.workflow.instance.WorkflowProcessInstance;
 import org.jbpm.workflow.instance.WorkflowRuntimeException;
+import org.jbpm.workflow.instance.node.ActionNodeInstance;
 import org.jbpm.workflow.instance.node.CompositeNodeInstance;
 import org.kie.api.definition.process.Connection;
 import org.kie.api.definition.process.Node;
+import org.kie.api.runtime.EnvironmentName;
 import org.kie.api.runtime.process.NodeInstance;
 import org.kie.api.runtime.process.NodeInstanceContainer;
+import org.kie.internal.runtime.error.ExecutionErrorHandler;
+import org.kie.internal.runtime.error.ExecutionErrorManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Default implementation of a RuleFlow node instance.
  * 
- * @author <a href="mailto:kris_verlaenen@hotmail.com">Kris Verlaenen</a>
  */
 public abstract class NodeInstanceImpl implements org.jbpm.workflow.instance.NodeInstance, Serializable {
 
 	private static final long serialVersionUID = 510l;
-	private static final Logger logger = LoggerFactory.getLogger(NodeInstanceImpl.class);
+	protected static final Logger logger = LoggerFactory.getLogger(NodeInstanceImpl.class);
 	
-	private long id;
+	private long id = -1;
     private long nodeId;
     private WorkflowProcessInstance processInstance;
     private org.jbpm.workflow.instance.NodeInstanceContainer nodeInstanceContainer;
     private Map<String, Object> metaData = new HashMap<String, Object>();
     private int level;
+    
+    protected transient Map<String, Object> dynamicParameters;
 
     public void setId(final long id) {
         this.id = id;
@@ -135,7 +141,8 @@ public abstract class NodeInstanceImpl implements org.jbpm.workflow.instance.Nod
     public void cancel() {
         nodeInstanceContainer.removeNodeInstance(this);
         boolean hidden = false;
-    	if (getNode().getMetaData().get("hidden") != null) {
+        Node node = getNode();
+    	if (node != null && node.getMetaData().get("hidden") != null) {
     		hidden = true;
     	}
     	if (!hidden) {
@@ -168,6 +175,7 @@ public abstract class NodeInstanceImpl implements org.jbpm.workflow.instance.Nod
     			.getProcessEventSupport().fireBeforeNodeTriggered(this, kruntime);
     	}
         try {
+            getExecutionErrorHandler().processing(this);
             internalTrigger(from, type);
         }
         catch (WorkflowRuntimeException e) {
@@ -185,8 +193,8 @@ public abstract class NodeInstanceImpl implements org.jbpm.workflow.instance.Nod
     public abstract void internalTrigger(NodeInstance from, String type);
    
     /**
-     * This method is used in both instances of the {@link extendednodeinstanceimpl} 
-     * and {@link actionnodeinstance} instances in order to handle 
+     * This method is used in both instances of the {@link ExtendedNodeInstanceImpl}
+     * and {@link ActionNodeInstance} instances in order to handle 
      * exceptions thrown when executing actions.
      * 
      * @param action An {@link Action} instance.
@@ -208,6 +216,7 @@ public abstract class NodeInstanceImpl implements org.jbpm.workflow.instance.Nod
     }
     
     protected void triggerCompleted(String type, boolean remove) {
+        getExecutionErrorHandler().processed(this);
         Node node = getNode();
         if (node != null) {
 	    	String uniqueId = (String) node.getMetaData().get("UniqueId");
@@ -390,10 +399,13 @@ public abstract class NodeInstanceImpl implements org.jbpm.workflow.instance.Nod
     	org.jbpm.workflow.instance.NodeInstance nodeInstance = (org.jbpm.workflow.instance.NodeInstance)
     		((org.jbpm.workflow.instance.NodeInstanceContainer) getNodeInstanceContainer())
             	.getNodeInstance(getNode().getNodeContainer().getNode(nodeId));
-    	triggerNodeInstance(nodeInstance, null);
+    	triggerNodeInstance(nodeInstance, org.jbpm.workflow.core.Node.CONNECTION_DEFAULT_TYPE);
     }
     
     public Context resolveContext(String contextId, Object param) {
+        if (getNode() == null) {
+            return null;
+        }
         return ((NodeImpl) getNode()).resolveContext(contextId, param);
     }
     
@@ -508,4 +520,15 @@ public abstract class NodeInstanceImpl implements org.jbpm.workflow.instance.Nod
     	}
     }
     
+    public void setDynamicParameters(Map<String, Object> dynamicParameters) {
+        this.dynamicParameters = dynamicParameters;
+    }
+    
+    protected ExecutionErrorHandler getExecutionErrorHandler() {
+        ExecutionErrorManager errorManager = (ExecutionErrorManager) getProcessInstance().getKnowledgeRuntime().getEnvironment().get(EnvironmentName.EXEC_ERROR_MANAGER);
+        if (errorManager == null) {
+            return new NoOpExecutionErrorHandler();
+        }
+        return errorManager.getHandler();
+    }
 }

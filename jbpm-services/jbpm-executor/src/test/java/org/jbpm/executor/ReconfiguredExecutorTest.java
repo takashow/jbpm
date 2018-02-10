@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,15 +26,17 @@ import java.util.concurrent.TimeUnit;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
 
-import org.jbpm.test.util.TestUtil;
+import org.jbpm.executor.impl.ExecutorServiceImpl;
+import org.jbpm.executor.test.CountDownAsyncJobListener;
+import org.jbpm.test.util.ExecutorTestUtil;
+import org.jbpm.test.util.PoolingDataSource;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.kie.internal.executor.api.CommandContext;
-import org.kie.internal.executor.api.ExecutorService;
-import org.kie.internal.executor.api.RequestInfo;
-
-import bitronix.tm.resource.jdbc.PoolingDataSource;
+import org.kie.api.executor.CommandContext;
+import org.kie.api.executor.ExecutorService;
+import org.kie.api.executor.RequestInfo;
+import org.kie.api.runtime.query.QueryContext;
 
 
 public class ReconfiguredExecutorTest {
@@ -42,13 +44,12 @@ public class ReconfiguredExecutorTest {
 	protected ExecutorService executorService;
     public static final Map<String, Object> cachedEntities = new HashMap<String, Object>();
     
-    
 	private PoolingDataSource pds;
 	private EntityManagerFactory emf = null;
     
     @Before
     public void setUp() {
-        pds = TestUtil.setupPoolingDataSource();
+        pds = ExecutorTestUtil.setupPoolingDataSource();
         emf = Persistence.createEntityManagerFactory("org.jbpm.executor");
 
         executorService = ExecutorServiceFactory.newExecutorService(emf);
@@ -72,21 +73,29 @@ public class ReconfiguredExecutorTest {
         }
         pds.close();
     }
+    
+    protected CountDownAsyncJobListener configureListener(int threads) {
+        CountDownAsyncJobListener countDownListener = new CountDownAsyncJobListener(threads);
+        ((ExecutorServiceImpl) executorService).addAsyncJobListener(countDownListener);
+        
+        return countDownListener;
+    }
    
     @Test
     public void simpleExcecutionTest() throws InterruptedException {
+        CountDownAsyncJobListener countDownListener = configureListener(1);
         CommandContext ctxCMD = new CommandContext();
         ctxCMD.setData("businessKey", UUID.randomUUID().toString());
 
         executorService.scheduleRequest("org.jbpm.executor.commands.PrintOutCommand", ctxCMD);
 
-        Thread.sleep(10000);
+        countDownListener.waitTillCompleted();
 
-        List<RequestInfo> inErrorRequests = executorService.getInErrorRequests();
+        List<RequestInfo> inErrorRequests = executorService.getInErrorRequests(new QueryContext());
         assertEquals(0, inErrorRequests.size());
-        List<RequestInfo> queuedRequests = executorService.getQueuedRequests();
+        List<RequestInfo> queuedRequests = executorService.getQueuedRequests(new QueryContext());
         assertEquals(0, queuedRequests.size());
-        List<RequestInfo> executedRequests = executorService.getCompletedRequests();
+        List<RequestInfo> executedRequests = executorService.getCompletedRequests(new QueryContext());
         assertEquals(1, executedRequests.size());
 
 

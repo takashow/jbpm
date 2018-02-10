@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,6 +29,8 @@ import org.jbpm.services.ejb.api.DeploymentServiceEJBRemote;
 import org.jbpm.services.ejb.api.ProcessServiceEJBRemote;
 import org.jbpm.services.ejb.api.RuntimeDataServiceEJBRemote;
 import org.jbpm.services.ejb.api.UserTaskServiceEJBRemote;
+import org.jbpm.services.ejb.api.admin.ProcessInstanceMigrationServiceEJBRemote;
+import org.jbpm.services.ejb.api.query.QueryServiceEJBRemote;
 import org.jbpm.services.ejb.client.ClientServiceFactory;
 
 /**
@@ -48,6 +50,8 @@ public class JBossEJBClientServiceFactory implements ClientServiceFactory {
 		beansMappedNames.put(DefinitionServiceEJBRemote.class, "DefinitionServiceEJBImpl!org.jbpm.services.ejb.api.DefinitionServiceEJBRemote");
 		beansMappedNames.put(RuntimeDataServiceEJBRemote.class, "RuntimeDataServiceEJBImpl!org.jbpm.services.ejb.api.RuntimeDataServiceEJBRemote");
 		beansMappedNames.put(UserTaskServiceEJBRemote.class, "UserTaskServiceEJBImpl!org.jbpm.services.ejb.api.UserTaskServiceEJBRemote");
+		beansMappedNames.put(QueryServiceEJBRemote.class, "QueryServiceEJBImpl!org.jbpm.services.ejb.api.query.QueryServiceEJBRemote");
+		beansMappedNames.put(ProcessInstanceMigrationServiceEJBRemote.class, "ProcessInstanceMigrationServiceEJBImpl!org.jbpm.services.ejb.api.admin.ProcessInstanceMigrationServiceEJBRemote");
 	}
 
 	@SuppressWarnings("unchecked")

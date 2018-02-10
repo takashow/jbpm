@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss Inc
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,15 +26,26 @@ import org.junit.Before;
 
 public abstract class LDAPBaseTest {
 
+    private static final int PORT = 10389;
+
+    protected static final String SERVER_URL = "ldap://localhost:" + PORT;
+    protected static final String BASE_DN = "dc=jbpm,dc=org";
+    protected static final String USER_DN = "uid=admin,ou=system";
+    protected static final String PASSWORD = "secret";
+
+    public enum Configuration {
+        CUSTOM, DEFAULT, SYSTEM
+    }
+
     private InMemoryDirectoryServer server;
 
     @Before
     public void startDirectoryServer() throws LDAPException {
-        InMemoryListenerConfig listenerConfig = InMemoryListenerConfig.createLDAPConfig("default", 10389);
+        InMemoryListenerConfig listenerConfig = InMemoryListenerConfig.createLDAPConfig("default", PORT);
 
-        InMemoryDirectoryServerConfig serverConfig = new InMemoryDirectoryServerConfig(new DN("dc=jbpm,dc=org"));
+        InMemoryDirectoryServerConfig serverConfig = new InMemoryDirectoryServerConfig(new DN(BASE_DN));
         serverConfig.setListenerConfigs(listenerConfig);
-        serverConfig.addAdditionalBindCredentials("uid=admin,ou=system", "secret");
+        serverConfig.addAdditionalBindCredentials(USER_DN, PASSWORD);
         serverConfig.setSchema(null);
 
         server = new InMemoryDirectoryServer(serverConfig);

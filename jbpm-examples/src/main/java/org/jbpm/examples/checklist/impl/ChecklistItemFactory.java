@@ -1,3 +1,19 @@
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jbpm.examples.checklist.impl;
 
 import java.util.ArrayList;
@@ -6,20 +22,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.persistence.Persistence;
-
-import org.drools.core.process.core.Work;
+import org.jbpm.process.core.Work;
 import org.jbpm.examples.checklist.ChecklistItem;
 import org.jbpm.examples.checklist.ChecklistItem.Status;
-import org.jbpm.process.audit.AuditLogService;
-import org.jbpm.process.audit.JPAAuditLogService;
-import org.jbpm.process.audit.NodeInstanceLog;
 import org.jbpm.workflow.core.impl.NodeImpl;
 import org.jbpm.workflow.core.node.HumanTaskNode;
 import org.jbpm.workflow.core.node.StartNode;
 import org.kie.api.definition.process.Node;
 import org.kie.api.definition.process.NodeContainer;
 import org.kie.api.definition.process.WorkflowProcess;
+import org.kie.api.runtime.manager.audit.NodeInstanceLog;
 import org.kie.api.task.model.I18NText;
 import org.kie.api.task.model.OrganizationalEntity;
 import org.kie.api.task.model.Task;
@@ -164,12 +176,11 @@ public final class ChecklistItemFactory {
 		}
 	}
 	
-	public static Collection<ChecklistItem> getLoggedChecklistItems(long processInstanceId, WorkflowProcess process) {
+	public static Collection<ChecklistItem> getLoggedChecklistItems(WorkflowProcess process, List<NodeInstanceLog> nodeInstances) {
 		Map<String, ChecklistItem> result = new HashMap<String, ChecklistItem>();
 		Map<String, String> relevantNodes = new HashMap<String, String>();
 		getRelevantNodes(process, relevantNodes);
-		AuditLogService auditLogService = new JPAAuditLogService(Persistence.createEntityManagerFactory("org.jbpm.persistence.jpa"));
-		for (NodeInstanceLog log: auditLogService.findNodeInstances(processInstanceId)) {
+		for (NodeInstanceLog log: nodeInstances) {
 			String orderingNb = relevantNodes.get(log.getNodeId());
 			if (orderingNb != null) {
 				if (log.getType() == NodeInstanceLog.TYPE_EXIT) {

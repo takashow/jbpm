@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -101,7 +101,7 @@ public class TaskQueryManager {
 
 			case XMLStreamConstants.CHARACTERS:
 				if (name != null) {
-					tagContent.append(" " + reader.getText().trim());
+					tagContent.append(reader.getText());
 				}
 				break;
 
@@ -125,23 +125,23 @@ public class TaskQueryManager {
 	
 	private static String adaptOrderBy(String orderBy) {
 		if (orderBy != null) {
-			if (orderBy.equals("Task")) {
+			if (orderBy.equalsIgnoreCase("Task")) {
 				return "t.name";
-			} else if (orderBy.equals("Description")) {
+			} else if (orderBy.equalsIgnoreCase("Description")) {
 				return "t.description";
-			} else if (orderBy.equals("Id")) {
+			} else if (orderBy.equalsIgnoreCase("Id")) {
 				return "t.id";
-			} else if (orderBy.equals("Priority")) {
+			} else if (orderBy.equalsIgnoreCase("Priority")) {
 				return "t.priority";
-			} else if (orderBy.equals("Status")) {
+			} else if (orderBy.equalsIgnoreCase("Status")) {
 				return "t.taskData.status";
-			} else if (orderBy.equals("CreatedOn")) {
+			} else if (orderBy.equalsIgnoreCase("CreatedOn")) {
 				return "t.taskData.createdOn";
-			} else if (orderBy.equals("CreatedBy")) {
+			} else if (orderBy.equalsIgnoreCase("CreatedBy")) {
 				return "t.taskData.createdBy.id";
-			} else if (orderBy.equals("DueOn")) {
+			} else if (orderBy.equalsIgnoreCase("DueOn")) {
 				return "t.taskData.expirationTime";
-			} else if (orderBy.equals("ProcessInstanceId")) {
+			} else if (orderBy.equalsIgnoreCase("ProcessInstanceId")) {
 				return "t.taskData.processInstanceId";
 			} 
 		}

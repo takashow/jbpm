@@ -1,11 +1,11 @@
 /*
- * Copyright 2013 JBoss Inc
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,6 +22,13 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
+import org.drools.core.command.impl.ExecutableCommand;
+import org.drools.core.command.impl.RegistryContext;
+import org.drools.core.common.InternalKnowledgeRuntime;
+import org.drools.core.runtime.process.InternalProcessRuntime;
+import org.drools.persistence.api.TransactionManager;
+import org.jbpm.process.instance.ProcessRuntimeImpl;
+import org.jbpm.services.task.impl.TaskContentRegistry;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.manager.Context;
 import org.kie.api.runtime.manager.RuntimeEngine;
@@ -29,6 +36,7 @@ import org.kie.api.runtime.manager.RuntimeEnvironment;
 import org.kie.internal.runtime.manager.Disposable;
 import org.kie.internal.runtime.manager.SessionFactory;
 import org.kie.internal.runtime.manager.TaskServiceFactory;
+import org.kie.internal.task.api.ContentMarshallerContext;
 import org.kie.internal.task.api.InternalTaskService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,31 +83,89 @@ public class SingletonRuntimeManager extends AbstractRuntimeManager {
     }
     
     public void init() {
-
+        
         // TODO should we proxy/wrap the ksession so we capture dispose.destroy method calls?
         String location = getLocation();
-        Integer knownSessionId = getPersistedSessionId(location, identifier);
-        InternalTaskService internalTaskService = (InternalTaskService) taskServiceFactory.newTaskService();
+        Long knownSessionId = getPersistedSessionId(location, identifier);
+        InternalTaskService internalTaskService = newTaskService(taskServiceFactory);
         
-        
-        if (knownSessionId > 0) {
-            try {
-                this.singleton = new SynchronizedRuntimeImpl(factory.findKieSessionById(knownSessionId), internalTaskService);
-            } catch (RuntimeException e) {
-                // in case session with known id was found
-            }
-        } 
-        
-        if (this.singleton == null) {
-            
-            this.singleton = new SynchronizedRuntimeImpl(factory.newKieSession(), internalTaskService);            
-            persistSessionId(location, identifier, singleton.getKieSession().getId());
+        boolean owner = false;
+        TransactionManager tm = null;
+        if (environment.usePersistence()) {
+            tm = getTransactionManagerInternal(environment.getEnvironment());
+            owner = tm.begin();
         }
-        ((RuntimeEngineImpl) singleton).setManager(this);
-        configureRuntimeOnTaskService(internalTaskService, singleton);
-        registerItems(this.singleton);
-        attachManager(this.singleton);
-        this.registry.register(this);
+        try {
+            if (knownSessionId > 0) {
+                try {
+                    this.singleton = new SynchronizedRuntimeImpl(factory.findKieSessionById(knownSessionId), internalTaskService);
+                } catch (RuntimeException e) {
+                    // in case session with known id was found
+                }
+            } 
+            
+            if (this.singleton == null) {
+                
+                this.singleton = new SynchronizedRuntimeImpl(factory.newKieSession(), internalTaskService);            
+                persistSessionId(location, identifier, singleton.getKieSession().getIdentifier());
+            }
+            ((RuntimeEngineImpl) singleton).setManager(this);
+            TaskContentRegistry.get().addMarshallerContext(getIdentifier(), 
+        			new ContentMarshallerContext(environment.getEnvironment(), environment.getClassLoader()));
+            configureRuntimeOnTaskService(internalTaskService, singleton);
+            registerItems(this.singleton);
+            attachManager(this.singleton);
+            this.registry.register(this);
+            if (tm != null) {
+                tm.commit(owner);
+            }
+        } catch (Exception e) {
+            if (tm != null) {
+                tm.rollback(owner);
+            }
+            throw new RuntimeException("Exception while initializing runtime manager " + this.identifier, e);
+        }
+    }
+    
+    @Override
+    public void activate() {
+        super.activate();
+        this.singleton.getKieSession().execute(new ExecutableCommand<Void>() {
+
+            private static final long serialVersionUID = 4698203316007668876L;
+
+            @Override
+            public Void execute(org.kie.api.runtime.Context context) {
+                KieSession ksession = ((RegistryContext) context).lookup( KieSession.class );
+                ksession.getEnvironment().set("Active", true);
+                
+                InternalProcessRuntime processRuntime = ((InternalKnowledgeRuntime) ksession).getProcessRuntime();
+                ((ProcessRuntimeImpl) processRuntime).initProcessEventListeners();
+                ((ProcessRuntimeImpl) processRuntime).initStartTimers();
+                return null;
+            }
+        });
+        
+    }
+
+    @Override
+    public void deactivate() {
+        super.deactivate();
+        this.singleton.getKieSession().execute(new ExecutableCommand<Void>() {
+
+            private static final long serialVersionUID = 8099201526203340191L;
+
+            @Override
+            public Void execute(org.kie.api.runtime.Context context) {
+                KieSession ksession = ((RegistryContext) context).lookup( KieSession.class );
+                ksession.getEnvironment().set("Active", false);
+                
+                InternalProcessRuntime processRuntime = ((InternalKnowledgeRuntime) ksession).getProcessRuntime();
+                ((ProcessRuntimeImpl) processRuntime).removeProcessEventListeners();
+                return null;
+            }
+        });
+        
     }
 
     @SuppressWarnings("rawtypes")
@@ -113,13 +179,21 @@ public class SingletonRuntimeManager extends AbstractRuntimeManager {
         return this.singleton;
     }
 
+    @Override
+    public void signalEvent(String type, Object event) {
+        if (isClosed()) {
+            throw new IllegalStateException("Runtime manager " + identifier + " is already closed");
+        }
+        checkPermission();
+        this.singleton.getKieSession().signalEvent(type, event);
+    }
 
     @Override
     public void validate(KieSession ksession, Context<?> context) throws IllegalStateException {
     	if (isClosed()) {
     		throw new IllegalStateException("Runtime manager " + identifier + " is already closed");
     	}
-        if (this.singleton != null && this.singleton.getKieSession().getId() != ksession.getId()) {
+        if (this.singleton != null && this.singleton.getKieSession().getIdentifier() != ksession.getIdentifier()) {
             throw new IllegalStateException("Invalid session was used for this context " + context);
         }
     }
@@ -137,7 +211,7 @@ public class SingletonRuntimeManager extends AbstractRuntimeManager {
         super.close();
         // dispose singleton session only when manager is closing
         try {
-        	removeRuntimeFromTaskService((InternalTaskService) this.singleton.getTaskService());
+        	removeRuntimeFromTaskService();
         } catch (UnsupportedOperationException e) {
         	logger.debug("Exception while closing task service, was it initialized? {}", e.getMessage());
         }
@@ -154,22 +228,26 @@ public class SingletonRuntimeManager extends AbstractRuntimeManager {
      * @param identifier of the manager owning this ksessionId
      * @return sessionId if file was found otherwise 0
      */
-    protected int getPersistedSessionId(String location, String identifier) {
+    protected Long getPersistedSessionId(String location, String identifier) {
         File sessionIdStore = new File(location + File.separator + identifier+ "-jbpmSessionId.ser");
         if (sessionIdStore.exists()) {
-            Integer knownSessionId = null; 
+        	Long knownSessionId = null; 
             FileInputStream fis = null;
             ObjectInputStream in = null;
             try {
                 fis = new FileInputStream(sessionIdStore);
                 in = new ObjectInputStream(fis);
                 
-                knownSessionId = (Integer) in.readObject();
+            	Object tmp = in.readObject();
+            	if (tmp instanceof Integer) {
+            		tmp = new Long((Integer) tmp);
+            	}
+        		knownSessionId = (Long) tmp;
                 
-                return knownSessionId.intValue();
+                return knownSessionId.longValue();
                 
             } catch (Exception e) {
-                return 0;
+                return 0L;
             } finally {
                 if (in != null) {
                     try {
@@ -187,7 +265,7 @@ public class SingletonRuntimeManager extends AbstractRuntimeManager {
             }
             
         } else {
-            return 0;
+            return 0L;
         }
     }
     
@@ -197,7 +275,7 @@ public class SingletonRuntimeManager extends AbstractRuntimeManager {
      * @param identifier of the manager owning this ksessionId
      * @param ksessionId value of ksessionId to be stored
      */
-    protected void persistSessionId(String location, String identifier, int ksessionId) {
+    protected void persistSessionId(String location, String identifier, Long ksessionId) {
         if (location == null) {
             return;
         }
@@ -206,7 +284,7 @@ public class SingletonRuntimeManager extends AbstractRuntimeManager {
         try {
             fos = new FileOutputStream(location + File.separator + identifier + "-jbpmSessionId.ser");
             out = new ObjectOutputStream(fos);
-            out.writeObject(Integer.valueOf(ksessionId));
+            out.writeObject(Long.valueOf(ksessionId));
             out.close();
         } catch (IOException ex) {
 //            logger.warn("Error when persisting known session id", ex);

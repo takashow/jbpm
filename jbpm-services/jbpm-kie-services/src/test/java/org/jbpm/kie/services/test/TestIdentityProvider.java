@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,24 +16,35 @@
 
 package org.jbpm.kie.services.test;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 
-import org.jbpm.kie.services.api.IdentityProvider;
+import org.kie.internal.identity.IdentityProvider;
 
 public class TestIdentityProvider implements IdentityProvider {
+	
+	private String name = "testUser";
+	private List<String> roles = new ArrayList<String>();
 
     public String getName() {
-        return "testUser";
+        return name;
     }
 
     public List<String> getRoles() {
-        return Collections.emptyList();
+        return roles;
     }
 
 	@Override
 	public boolean hasRole(String role) {
-		return false;
+		return roles.contains(role);
 	}
 
+	// just for testing
+	public void setRoles(List<String> roles) {
+		this.roles = roles;
+	}
+	
+	public void setName(String name) {
+		this.name = name;
+	}
 }

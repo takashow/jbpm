@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,13 +16,11 @@
 
 package org.jbpm.process;
 
-import static org.junit.Assert.assertEquals;
-
 import java.util.ArrayList;
 import java.util.List;
 
-import org.drools.core.process.core.datatype.impl.type.ObjectDataType;
 import org.jbpm.process.core.context.variable.Variable;
+import org.jbpm.process.core.datatype.impl.type.ObjectDataType;
 import org.jbpm.process.core.event.EventTypeFilter;
 import org.jbpm.process.instance.impl.Action;
 import org.jbpm.process.test.Person;
@@ -45,6 +43,8 @@ import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.process.ProcessContext;
 import org.kie.api.runtime.process.ProcessInstance;
 import org.slf4j.LoggerFactory;
+
+import static org.junit.Assert.assertEquals;
 
 public class EventTest extends AbstractBaseTest  {
     
@@ -434,6 +434,7 @@ public class EventTest extends AbstractBaseTest  {
             "bnt-1", "ant-1",
             "anl-3", "ant-3",
             "anl-2",
+            "bvc-event", "avc-event",
             "bnl-4",
             "bnt-5", "bnl-5",
             "bnt-1", "ant-1",
@@ -710,24 +711,24 @@ public class EventTest extends AbstractBaseTest  {
             "bps",
             "bnt-0", "bnl-0",
             "bnt-1",
-            "bnt-1:1", "ant-1:1",
+            "bnt-1:4", "ant-1:4",
             "ant-1",
             "anl-0", "ant-0",
             "aps",
             "bvc-event", "avc-event",
-            "bnl-1:2",
-            "bnt-1:3", "bnl-1:3",
-            "bnt-1:4", "bnl-1:4",
+            "bnl-1:5",
+            "bnt-1:6", "bnl-1:6",
+            "bnt-1:7", "bnl-1:7",
             "bnl-1",
-            "bnt-2", "bnl-2",
+            "bnt-8", "bnl-8",
             "bpc",
             "apc",
-            "anl-2", "ant-2",
+            "anl-8", "ant-8",
             "anl-1",
-            "anl-1:1",
-            "anl-1:4", "ant-1:4",
-            "anl-1:3", "ant-1:3",
-            "anl-1:2"
+            "anl-1:4",
+            "anl-1:7", "ant-1:7",
+            "anl-1:6", "ant-1:6",
+            "anl-1:5"
     };
     
     @Test

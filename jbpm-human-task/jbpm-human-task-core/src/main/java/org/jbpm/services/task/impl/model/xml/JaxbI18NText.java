@@ -1,10 +1,21 @@
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jbpm.services.task.impl.model.xml;
 
-import static org.jbpm.services.task.impl.model.xml.AbstractJaxbTaskObject.unsupported;
-
-import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,12 +25,15 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlSchemaType;
 
+import org.jbpm.services.task.impl.model.xml.InternalJaxbWrapper.GetterI18NText;
 import org.kie.api.task.model.I18NText;
-import org.kie.api.task.model.User;
+
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
 
 @XmlRootElement(name="i18n-text")
 @XmlAccessorType(XmlAccessType.FIELD)
-public class JaxbI18NText implements I18NText {
+@JsonAutoDetect(getterVisibility=JsonAutoDetect.Visibility.NONE, setterVisibility=JsonAutoDetect.Visibility.NONE, fieldVisibility=JsonAutoDetect.Visibility.ANY)
+public class JaxbI18NText extends AbstractJaxbTaskObject<I18NText> implements I18NText {
 
     @XmlElement
     @XmlSchemaType(name="long")
@@ -34,13 +48,11 @@ public class JaxbI18NText implements I18NText {
     private String language;
  
     public JaxbI18NText() { 
-       // JAXB Default 
+       super(I18NText.class);
     }
     
     public JaxbI18NText(I18NText text) { 
-       this.id = text.getId();
-       this.language = text.getLanguage();
-       this.text = text.getText();
+       super(text, I18NText.class);
     }
     
     public Long getId() {
@@ -67,26 +79,15 @@ public class JaxbI18NText implements I18NText {
         this.language = lang;
     }
 
-    public static List<JaxbI18NText> convertListFromInterfaceToJaxbImpl(List<I18NText> textList) { 
-        List<JaxbI18NText> jaxbTextList = new ArrayList<JaxbI18NText>(textList.size());
-        if( textList != null ) { 
-            for( I18NText text : textList ) { 
-                if( text instanceof JaxbI18NText ) { 
-                    jaxbTextList.add((JaxbI18NText) text);
-                } else { 
-                    jaxbTextList.add(new JaxbI18NText(text));
-                }
-            }
-        }
-        return jaxbTextList;
-    }
-    
     public static List<I18NText> convertListFromJaxbImplToInterface(List<JaxbI18NText> jaxbList) { 
-        List<I18NText> list = new ArrayList<I18NText>(jaxbList.size());
+        List<I18NText> list;
         if( jaxbList != null ) { 
+            list = new ArrayList<I18NText>(jaxbList.size());
             for( JaxbI18NText jaxb : jaxbList ) { 
                 list.add(jaxb.createImplInstance());
             }
+        } else { 
+            list = new ArrayList<I18NText>();
         }
         return list;
     }
@@ -95,42 +96,4 @@ public class JaxbI18NText implements I18NText {
        return new GetterI18NText(this.id, this.language, this.text);
     }
 
-    @Override
-    public void writeExternal(ObjectOutput out) throws IOException {
-        unsupported(I18NText.class);
-    }
-
-    @Override
-    public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-        unsupported(I18NText.class);
-    }
-    
-    
-    /**
-     * I was forced to do this because we put the interfaces to our *ENTITIES* in the *PUBLIC* API. 
-     */
-    static class GetterI18NText implements I18NText {
-    
-        private final Long id;
-        private final String lang;
-        private final String text;
-        
-        public GetterI18NText(Long id, String lang, String text) { 
-            this.id = id;
-            this.lang = lang;
-            this.text = text;
-        }
-        
-        @Override
-        public Long getId() { return this.id; }
-    
-        @Override
-        public String getLanguage() { return this.lang; }
-
-        @Override
-        public String getText() { return this.text; }
-
-        public void writeExternal(ObjectOutput out) throws IOException { unsupported(User.class); }
-        public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException { unsupported(User.class); } 
-    }
 }

@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,11 +20,10 @@ import javax.persistence.Persistence;
 
 import org.jbpm.services.task.deadlines.notifications.impl.MockNotificationListener;
 import org.jbpm.services.task.impl.TaskDeadlinesServiceImpl;
+import org.jbpm.test.util.PoolingDataSource;
 import org.junit.After;
 import org.junit.Before;
 import org.kie.internal.task.api.InternalTaskService;
-
-import bitronix.tm.resource.jdbc.PoolingDataSource;
 
 /**
  *
@@ -41,7 +40,6 @@ public class DeadlinesLocalTest extends DeadlinesBaseTest {
 		this.notificationListener = new MockNotificationListener();
 		pds = setupPoolingDataSource();
 		emf = Persistence.createEntityManagerFactory( "org.jbpm.services.task" );
-		TaskDeadlinesServiceImpl.setNotificationListener(this.notificationListener);
 		this.taskService = (InternalTaskService) HumanTaskServiceFactory.newTaskServiceConfigurator()
 												.entityManagerFactory(emf)
 												.getTaskService();

@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,8 +33,6 @@ import org.junit.Assume;
 import org.junit.Test;
 import org.kie.api.task.model.Status;
 import org.kie.api.task.model.Task;
-
-import bitronix.tm.TransactionManagerServices;
 
 /**
  *
@@ -173,7 +171,7 @@ public abstract class SubTasksBaseTest extends HumanTaskServicesBaseTest{
 
         String tableName = TaskImpl.class.getAnnotation(Table.class).name();
                 
-        TransactionManagerServices.getTransactionManager().begin();
+        com.arjuna.ats.jta.TransactionManager.transactionManager().begin();
         try { 
             EntityManager em = getEmf().createEntityManager();
             Query query = em.createNativeQuery(
@@ -183,11 +181,12 @@ public abstract class SubTasksBaseTest extends HumanTaskServicesBaseTest{
             String seqName = (String) query.getSingleResult();
             query = em.createNativeQuery("alter sequence " + seqName + " increment by 1000");
             query.executeUpdate();
+            
+            com.arjuna.ats.jta.TransactionManager.transactionManager().commit();
         } catch( Throwable t ) { 
+        	com.arjuna.ats.jta.TransactionManager.transactionManager().rollback();
             // underlying database is NOT h2, skip test
             Assume.assumeFalse(true);
-        } finally { 
-            TransactionManagerServices.getTransactionManager().commit();
         }
     	
          // One potential owner, should go straight to state Reserved

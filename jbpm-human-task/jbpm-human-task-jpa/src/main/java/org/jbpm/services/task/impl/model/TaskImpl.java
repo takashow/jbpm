@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,6 +22,7 @@ import java.io.ObjectOutput;
 import java.util.Collections;
 import java.util.List;
 
+import java.util.Objects;
 import javax.persistence.Basic;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
@@ -125,13 +126,31 @@ public class TaskImpl implements InternalTask {
         } else {
         	out.writeUTF("");
         }
-        out.writeUTF(formName);
         
-        out.writeUTF(name);
+        if (formName != null) {
+        	out.writeUTF(formName);
+        } else {
+        	out.writeUTF("");
+        }
         
-        out.writeUTF(subject);
+        if (name != null) {
+        	out.writeUTF(name);
+        } else {
+        	out.writeUTF("");
+        }
+               
+        if (subject != null) {
+        	out.writeUTF(subject);
+        } else {
+        	out.writeUTF("");
+        }
+               
+        if (description != null) {
+        	out.writeUTF(description);
+        } else {
+        	out.writeUTF("");
+        }
         
-        out.writeUTF(description);
         
         CollectionUtils.writeI18NTextList( names, out );
         CollectionUtils.writeI18NTextList( subjects, out );
@@ -218,7 +237,7 @@ public class TaskImpl implements InternalTask {
         return id;
     }
 
-    public void setId(long id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
@@ -237,15 +256,15 @@ public class TaskImpl implements InternalTask {
         }
     }
     
-    public int getVersion() {
+    public Integer getVersion() {
         return this.version;
     }
 
-    public int getPriority() {
+    public Integer getPriority() {
         return priority;
     }
 
-    public void setPriority(int priority) {
+    public void setPriority(Integer priority) {
         this.priority = priority;
     }
 
@@ -348,7 +367,7 @@ public class TaskImpl implements InternalTask {
         if ( this.version != other.version ) {
             return false;
         }
-        if ( this.archived != other.archived ) {
+        if (!Objects.equals(this.archived, other.archived)) {
             return false;
         }
         if (taskType == null) {
@@ -405,7 +424,10 @@ public class TaskImpl implements InternalTask {
     public void setDescription(String description) {
         this.description = description;
     }
-    
-    
 
+    @Override
+    public String toString() {
+        return "TaskImpl [id=" + id + ", name=" + name + "]";
+    }
+  
 }

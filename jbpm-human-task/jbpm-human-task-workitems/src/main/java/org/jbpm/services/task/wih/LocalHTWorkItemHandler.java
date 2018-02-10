@@ -1,11 +1,11 @@
 /*
- * Copyright 2012 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,8 @@
 package org.jbpm.services.task.wih;
 
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 import org.jbpm.services.task.exception.PermissionDeniedException;
 import org.jbpm.services.task.utils.OnErrorAction;
@@ -24,10 +26,11 @@ import org.kie.api.runtime.manager.RuntimeEngine;
 import org.kie.api.runtime.manager.RuntimeManager;
 import org.kie.api.runtime.process.WorkItem;
 import org.kie.api.runtime.process.WorkItemManager;
+import org.kie.api.task.model.Group;
+import org.kie.api.task.model.OrganizationalEntity;
 import org.kie.api.task.model.Task;
 import org.kie.internal.runtime.manager.context.ProcessInstanceIdContext;
 import org.kie.internal.task.api.InternalTaskService;
-import org.kie.internal.task.api.model.ContentData;
 import org.kie.internal.task.exception.TaskException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,7 +39,7 @@ import org.slf4j.LoggerFactory;
 public class LocalHTWorkItemHandler extends AbstractHTWorkItemHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(LocalHTWorkItemHandler.class);
-    private RuntimeManager runtimeManager;
+    private RuntimeManager runtimeManager;        
     
     public RuntimeManager getRuntimeManager() {
         return runtimeManager;
@@ -56,10 +59,11 @@ public class LocalHTWorkItemHandler extends AbstractHTWorkItemHandler {
         KieSession ksessionById = runtime.getKieSession();
         
         Task task = createTaskBasedOnWorkItemParams(ksessionById, workItem);
-        ContentData content = createTaskContentBasedOnWorkItemParams(ksessionById, workItem);
+//        ContentData content = createTaskContentBasedOnWorkItemParams(ksessionById, workItem);
+        Map<String, Object> content = createTaskDataBasedOnWorkItemParams(ksessionById, workItem);
         try {
             long taskId = ((InternalTaskService) runtime.getTaskService()).addTask(task, content);
-            if (isAutoClaim(workItem, task)) {
+            if (isAutoClaim(ksessionById, workItem, task)) {
             	try {
             		runtime.getTaskService().claim(taskId, (String) workItem.getParameter("SwimlaneActorId"));
             	} catch (PermissionDeniedException e) {
@@ -98,7 +102,21 @@ public class LocalHTWorkItemHandler extends AbstractHTWorkItemHandler {
         Task task = runtime.getTaskService().getTaskByWorkItemId(workItem.getId());
         if (task != null) {
             try {
-                runtime.getTaskService().exit(task.getId(), "Administrator");
+                String adminUser = ADMIN_USER;
+                
+                List<OrganizationalEntity> businessAdmins = task.getPeopleAssignments().getBusinessAdministrators();
+                for (OrganizationalEntity admin : businessAdmins) {
+                    if (admin instanceof Group) {
+                        continue;
+                    }
+                    
+                    if (!admin.getId().equals(ADMIN_USER)) {
+                        adminUser = admin.getId();
+                        break;
+                    }
+                }
+                logger.debug("Task {} is going to be exited by {} who is business admin", task.getId(), adminUser);
+                runtime.getTaskService().exit(task.getId(), adminUser);
             } catch (PermissionDeniedException e) {
                 logger.info(e.getMessage());
             }

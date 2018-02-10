@@ -6,6 +6,7 @@
 
   <!-- process instance queries -->
   <named-query name="getProcessInstances">
+
     <query>
       select
       new org.jbpm.kie.services.impl.model.ProcessInstanceDesc(
@@ -17,7 +18,9 @@
       log.externalId,
       log.start,
       log.identity,
-      log.processInstanceDescription
+      log.processInstanceDescription,
+      log.correlationKey,
+      log.parentProcessInstanceId
       )
       from
         ProcessInstanceLog log
@@ -39,8 +42,10 @@
       log.externalId,
       log.start,
       log.identity,
-      log.processInstanceDescription
-      )
+      log.processInstanceDescription,
+      log.correlationKey,
+      log.parentProcessInstanceId)
+
       from
         ProcessInstanceLog log
       where
@@ -61,8 +66,10 @@
       log.externalId,
       log.start,
       log.identity,
-      log.processInstanceDescription
-      )
+      log.processInstanceDescription,
+      log.correlationKey,
+      log.parentProcessInstanceId
+        )
       from
         ProcessInstanceLog log
       where
@@ -83,8 +90,10 @@
       log.externalId,
       log.start,
       log.identity,
-      log.processInstanceDescription
-      )
+      log.processInstanceDescription,
+      log.correlationKey,
+      log.parentProcessInstanceId
+        )
       from
         ProcessInstanceLog log
       where
@@ -106,8 +115,10 @@
       log.externalId,
       log.start,
       log.identity,
-      log.processInstanceDescription
-      )
+      log.processInstanceDescription,
+      log.correlationKey,
+      log.parentProcessInstanceId
+        )
       from
         ProcessInstanceLog log
       where
@@ -128,12 +139,89 @@
       log.externalId,
       log.start,
       log.identity,
-      log.processInstanceDescription
-      )
+      log.processInstanceDescription,
+      log.correlationKey,
+      log.parentProcessInstanceId
+        )
       from
         ProcessInstanceLog log
       where
         log.processInstanceId =:processId
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query>
+  
+  <named-query name="getProcessInstanceByCorrelationKey">
+    <query>
+     select
+      new org.jbpm.kie.services.impl.model.ProcessInstanceDesc(
+      log.processInstanceId,
+      log.processId,
+      log.processName,
+      log.processVersion,
+      log.status,
+      log.externalId,
+      log.start,
+      log.identity,
+      log.processInstanceDescription,
+      log.correlationKey,
+      log.parentProcessInstanceId
+        )
+      from
+        ProcessInstanceLog log
+      where
+        log.correlationKey =:correlationKey
+        and log.status = 1
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query>
+  
+  <named-query name="getProcessInstancesByCorrelationKey">
+    <query>
+     select
+      new org.jbpm.kie.services.impl.model.ProcessInstanceDesc(
+      log.processInstanceId,
+      log.processId,
+      log.processName,
+      log.processVersion,
+      log.status,
+      log.externalId,
+      log.start,
+      log.identity,
+      log.processInstanceDescription,
+      log.correlationKey,
+      log.parentProcessInstanceId
+        )
+      from
+        ProcessInstanceLog log
+      where
+        log.correlationKey like :correlationKey
+        order by log.id
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query>
+  
+  <named-query name="getProcessInstancesByCorrelationKeyAndStatus">
+    <query>
+     select
+      new org.jbpm.kie.services.impl.model.ProcessInstanceDesc(
+      log.processInstanceId,
+      log.processId,
+      log.processName,
+      log.processVersion,
+      log.status,
+      log.externalId,
+      log.start,
+      log.identity,
+      log.processInstanceDescription,
+      log.correlationKey,
+      log.parentProcessInstanceId
+        )
+      from
+        ProcessInstanceLog log
+      where
+        log.correlationKey like :correlationKey and log.status in (:states)
+        order by log.id
     </query>
     <!-- hint name="org.hibernate.timeout" value="200"/ -->
   </named-query>
@@ -151,7 +239,9 @@
       log.externalId,
       log.start,
       log.identity,
-      log.processInstanceDescription
+      log.processInstanceDescription,
+      log.correlationKey,
+      log.parentProcessInstanceId
       )
       from
         ProcessInstanceLog log
@@ -173,7 +263,9 @@
       log.externalId,
       log.start,
       log.identity,
-      log.processInstanceDescription
+      log.processInstanceDescription,
+      log.correlationKey,
+      log.parentProcessInstanceId
       )
       from
         ProcessInstanceLog log
@@ -183,7 +275,7 @@
     <!-- hint name="org.hibernate.timeout" value="200"/ -->
   </named-query>
 
-<named-query name="getProcessInstancesByProcessNameAndStatus">
+  <named-query name="getProcessInstancesByProcessNameAndStatus">
     <query>
      select
       new org.jbpm.kie.services.impl.model.ProcessInstanceDesc(
@@ -195,7 +287,9 @@
       log.externalId,
       log.start,
       log.identity,
-      log.processInstanceDescription
+      log.processInstanceDescription,
+      log.correlationKey,
+      log.parentProcessInstanceId
       )
       from
         ProcessInstanceLog log
@@ -217,7 +311,9 @@
       log.externalId,
       log.start,
       log.identity,
-      log.processInstanceDescription
+      log.processInstanceDescription,
+      log.correlationKey,
+      log.parentProcessInstanceId
       )
       from
         ProcessInstanceLog log
@@ -226,6 +322,86 @@
     </query>
     <!-- hint name="org.hibernate.timeout" value="200"/ -->
   </named-query>
+  
+  <named-query name="getProcessInstancesByVariableName">
+
+    <query>
+      select
+      new org.jbpm.kie.services.impl.model.ProcessInstanceDesc(
+      log.processInstanceId,
+      log.processId,
+      log.processName,
+      log.processVersion,
+      log.status,
+      log.externalId,
+      log.start,
+      log.identity,
+      log.processInstanceDescription,
+      log.correlationKey,
+      log.parentProcessInstanceId
+      )
+      from
+        ProcessInstanceLog log
+      where log.status in (:states) and log.processInstanceId in (select vlog.processInstanceId from
+        VariableInstanceLog vlog where vlog.variableId like :variable)
+      ORDER BY
+        log.processId, log.start
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query>
+  
+  <named-query name="getProcessInstancesByVariableNameAndValue">
+
+    <query>
+      select
+      new org.jbpm.kie.services.impl.model.ProcessInstanceDesc(
+      log.processInstanceId,
+      log.processId,
+      log.processName,
+      log.processVersion,
+      log.status,
+      log.externalId,
+      log.start,
+      log.identity,
+      log.processInstanceDescription,
+      log.correlationKey,
+      log.parentProcessInstanceId
+      )
+      from
+        ProcessInstanceLog log
+      where log.status in (:states) and log.processInstanceId in 
+      (select vlog.processInstanceId from VariableInstanceLog vlog where vlog.variableId=:variable and vlog.value like :variableValue
+      and vlog.id in (select max(vlog2.id) from VariableInstanceLog vlog2 where vlog2.variableId = vlog.variableId group by vlog2.processInstanceId))
+      ORDER BY
+        log.processId, log.start
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query> 
+  
+  <named-query name="getProcessInstancesByParent">
+    <query>
+      select
+      new org.jbpm.kie.services.impl.model.ProcessInstanceDesc(
+      log.processInstanceId,
+      log.processId,
+      log.processName,
+      log.processVersion,
+      log.status,
+      log.externalId,
+      log.start,
+      log.identity,
+      log.processInstanceDescription,
+      log.correlationKey,
+      log.parentProcessInstanceId)
+
+      from
+        ProcessInstanceLog log
+      where
+        log.status in (:states)
+        and log.parentProcessInstanceId = :parentId
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query>   
   
   <!-- node instance queries -->
 
@@ -242,7 +418,9 @@
       log.date,
       log.connection,
       log.type,
-      log.workItemId
+      log.workItemId,
+      log.referenceId,
+      log.nodeContainerId
       )
       from
         NodeInstanceLog log
@@ -254,7 +432,7 @@
     <!-- hint name="org.hibernate.timeout" value="200"/ -->
   </named-query>
   
-    <named-query name="getProcessInstanceFullHistoryByType">
+  <named-query name="getProcessInstanceFullHistoryByType">
     <query>
       select
       new org.jbpm.kie.services.impl.model.NodeInstanceDesc(
@@ -267,7 +445,9 @@
       log.date,
       log.connection,
       log.type,
-      log.workItemId
+      log.workItemId,
+      log.referenceId,
+      log.nodeContainerId
       )
       from
         NodeInstanceLog log
@@ -294,7 +474,9 @@
       log.date,
       log.connection,
       log.type,
-      log.workItemId
+      log.workItemId,
+      log.referenceId,
+      log.nodeContainerId
       )
       from
         NodeInstanceLog log
@@ -323,23 +505,25 @@
       log.date,
       log.connection,
       log.type,
-      log.workItemId
+      log.workItemId,
+      log.referenceId,
+      log.nodeContainerId
       )
       from
         NodeInstanceLog log
       where
         log.nodeInstanceId in (select nodeInstanceId from NodeInstanceLog nid where nid.processInstanceId=:processId AND nid.type = 1 
         						GROUP BY nid.nodeInstanceId
-                    			HAVING sum(nid.type) &gt;= 1) 
+                    HAVING sum(nid.type) &gt;= 1)
        	and log.type = 1 
        	and log.processInstanceId=:processId  
       ORDER BY 
-        log.date ASC
+        log.id ASC
     </query>
     <!-- hint name="org.hibernate.timeout" value="200"/ -->
   </named-query>
   
-    <named-query name="getNodeInstanceForWorkItem">
+  <named-query name="getNodeInstanceForWorkItem">
     <query>
       select
       new org.jbpm.kie.services.impl.model.NodeInstanceDesc(
@@ -352,7 +536,9 @@
       log.date,
       log.connection,
       log.type,
-      log.workItemId
+      log.workItemId,
+      log.referenceId,
+      log.nodeContainerId
       )
       from
         NodeInstanceLog log
@@ -365,6 +551,64 @@
     <!-- hint name="org.hibernate.timeout" value="200"/ -->
   </named-query>
 
+  <named-query name="getNodeInstancesByNodeType">
+    <query>
+      select
+      new org.jbpm.kie.services.impl.model.NodeInstanceDesc(
+      log.nodeInstanceId,
+      log.nodeId,
+      log.nodeName,
+      log.nodeType,
+      log.externalId,
+      log.processInstanceId,
+      log.date,
+      log.connection,
+      log.type,
+      log.workItemId,
+      log.referenceId,
+      log.nodeContainerId
+      )
+      from
+        NodeInstanceLog log
+      where
+        log.processInstanceId=:processInstanceId
+        and log.nodeType in (:nodeTypes)
+      ORDER BY 
+        log.nodeInstanceId
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query>
+  
+  <named-query name="getNodeInstancesByCorrelationKeyAndNodeType">
+    <query>
+      select
+      new org.jbpm.kie.services.impl.model.NodeInstanceDesc(
+      log.nodeInstanceId,
+      log.nodeId,
+      log.nodeName,
+      log.nodeType,
+      log.externalId,
+      log.processInstanceId,
+      log.date,
+      log.connection,
+      log.type,
+      log.workItemId,
+      log.referenceId,
+      log.nodeContainerId
+      )
+      from
+        ProcessInstanceLog plog,
+        NodeInstanceLog log
+      where
+        plog.correlationKey like :correlationKey
+        and plog.status in (:states) 
+        and plog.processInstanceId=log.processInstanceId
+        and log.nodeType in (:nodeTypes)
+      ORDER BY 
+        log.nodeInstanceId
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query>  
 
   <!-- variable instance queries -->
   <named-query name="getVariablesCurrentState">
@@ -456,14 +700,414 @@
 	      a.dueDate
 	      )
         from 
-        	AuditTaskImpl a,
-        	TaskImpl t 
+        	AuditTaskImpl a
         where 
-        	a.taskId = t.id and
-        	t.taskData.workItemId = :workItemId 
+        	a.workItemId = :workItemId 
         	
     </query>
     <!-- hint name="org.hibernate.timeout" value="200"/ -->
   </named-query>
+  
+    <named-query name="getTaskInstancesByProcessInstanceId">
+    <query>
+        select 
+        new org.jbpm.kie.services.impl.model.UserTaskInstanceDesc(
+        a.taskId,
+        a.status,
+        a.activationTime,
+        a.name,
+        a.description,
+        a.priority,
+        a.actualOwner,
+        a.createdBy,
+        a.deploymentId,
+        a.processId,
+        a.processInstanceId,
+        a.createdOn,
+        a.dueDate
+        )
+        from 
+          AuditTaskImpl a 
+        where 
+          a.processInstanceId = :processInstanceId
+          and a.status in ( :statuses) 
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query>
 
+  <!-- deployment store named queries -->
+  <named-query name="getDeploymentUnit">
+
+    <query>
+      select d from DeploymentStoreEntry d where d.deploymentId=:deploymentId
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query>
+  
+  <named-query name="getDeploymentUnitsByDate">
+
+    <query>
+      select d from DeploymentStoreEntry d where d.updateDate >= :ludate
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query>
+  
+  
+  <named-query name="getDeploymentUnitsByState">
+
+    <query>
+      select d from DeploymentStoreEntry d where d.state in (:state)
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query>
+  
+  
+  <!-- query definitions storage named queries -->
+  <named-query name="getQueryDefinitionByName">
+
+    <query>
+      select qd from QueryDefinitionEntity qd where name = :name
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query>
+  
+  <named-query name="getQueryDefinitions">
+
+    <query>
+      select qd from QueryDefinitionEntity qd
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query>
+  
+  
+  <!-- admin error handling queries -->
+  
+  <named-query name="getErrorByIdSkipAckCheck">
+    <query>
+     select
+      new org.kie.internal.runtime.error.ExecutionError(
+      error.errorId,
+      error.type,
+      error.deploymentId,
+      error.processInstanceId,
+      error.processId,
+      error.activityId,
+      error.activityName,
+      error.jobId,
+      error.errorMessage,
+      error.error,
+      error.acknowledged,
+      error.acknowledgedBy,
+      error.acknowledgedAt,
+      error.errorDate
+      )
+      from
+        ExecutionErrorInfo error
+      where
+        error.errorId =:errorId  
+      order by 
+        error.errorDate DESC
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query> 
+  
+  <named-query name="getErrorById">
+    <query>
+     select
+      new org.kie.internal.runtime.error.ExecutionError(
+      error.errorId,
+      error.type,
+      error.deploymentId,
+      error.processInstanceId,
+      error.processId,
+      error.activityId,
+      error.activityName,
+      error.jobId,
+      error.errorMessage,
+      error.error,
+      error.acknowledged,
+      error.acknowledgedBy,
+      error.acknowledgedAt,
+      error.errorDate
+      )
+      from
+        ExecutionErrorInfo error
+      where
+        error.errorId =:errorId  and
+        error.acknowledged in (:ack) 
+      order by 
+        error.errorDate DESC
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query>  
+  
+  <named-query name="getErrorsByTaskId">
+    <query>
+     select
+      new org.kie.internal.runtime.error.ExecutionError(
+      error.errorId,
+      error.type,
+      error.deploymentId,
+      error.processInstanceId,
+      error.processId,
+      error.activityId,
+      error.activityName,
+      error.jobId,
+      error.errorMessage,
+      error.acknowledged,
+      error.acknowledgedBy,
+      error.acknowledgedAt,
+      error.errorDate
+      )
+      from
+        ExecutionErrorInfo error
+      where
+        error.type= 'Task' and
+        error.activityId =:taskId and
+        error.acknowledged in (:ack) 
+      order by 
+        error.errorDate DESC
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query>  
+  
+  <named-query name="getErrorsByTaskName">
+    <query>
+     select
+      new org.kie.internal.runtime.error.ExecutionError(
+      error.errorId,
+      error.type,
+      error.deploymentId,
+      error.processInstanceId,
+      error.processId,
+      error.activityId,
+      error.activityName,
+      error.jobId,
+      error.errorMessage,
+      error.acknowledged,
+      error.acknowledgedBy,
+      error.acknowledgedAt,
+      error.errorDate
+      )
+      from
+        ExecutionErrorInfo error 
+      where
+        error.type= 'Task' and
+        error.activityName =:taskName and
+        error.acknowledged in (:ack) 
+      order by 
+        error.errorDate DESC
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query>  
+  
+  <named-query name="getErrorsByTaskNameProcessId">
+    <query>
+     select
+      new org.kie.internal.runtime.error.ExecutionError(
+      error.errorId,
+      error.type,
+      error.deploymentId,
+      error.processInstanceId,
+      error.processId,
+      error.activityId,
+      error.activityName,
+      error.jobId,
+      error.errorMessage,
+      error.acknowledged,
+      error.acknowledgedBy,
+      error.acknowledgedAt,
+      error.errorDate
+      )
+      from
+        ExecutionErrorInfo error
+      where
+        error.type= 'Task' and
+        error.processId =:processId  and
+        error.activityName =:taskName and
+        error.acknowledged in (:ack) 
+      order by 
+        error.errorDate DESC
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query>  
+  
+  <named-query name="getErrorsByTaskNameProcessIdDeploymentId">
+    <query>
+     select
+      new org.kie.internal.runtime.error.ExecutionError(
+      error.errorId,
+      error.type,
+      error.deploymentId,
+      error.processInstanceId,
+      error.processId,
+      error.activityId,
+      error.activityName,
+      error.jobId,
+      error.errorMessage,
+      error.acknowledged,
+      error.acknowledgedBy,
+      error.acknowledgedAt,
+      error.errorDate
+      )
+      from
+        ExecutionErrorInfo error
+      where
+        error.type= 'Task' and
+        error.deploymentId =:deploymentId and
+        error.processId =:processId  and
+        error.activityName =:taskName and
+        error.acknowledged in (:ack) 
+      order by 
+        error.errorDate DESC
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query> 
+  
+  <named-query name="getErrorsByProcessId">
+    <query>
+     select
+      new org.kie.internal.runtime.error.ExecutionError(
+      error.errorId,
+      error.type,
+      error.deploymentId,
+      error.processInstanceId,
+      error.processId,
+      error.activityId,
+      error.activityName,
+      error.jobId,
+      error.errorMessage,
+      error.acknowledged,
+      error.acknowledgedBy,
+      error.acknowledgedAt,
+      error.errorDate
+      )
+      from
+        ExecutionErrorInfo error 
+      where
+        error.deploymentId =:deploymentId and
+        error.processId =:processId and
+        error.acknowledged in (:ack) 
+      order by 
+        error.errorDate DESC
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query>  
+  
+  <named-query name="getErrorsByProcessInstanceId">
+    <query>
+     select
+      new org.kie.internal.runtime.error.ExecutionError(
+      error.errorId,
+      error.type,
+      error.deploymentId,
+      error.processInstanceId,
+      error.processId,
+      error.activityId,
+      error.activityName,
+      error.jobId,
+      error.errorMessage,
+      error.acknowledged,
+      error.acknowledgedBy,
+      error.acknowledgedAt,
+      error.errorDate
+      )
+      from
+        ExecutionErrorInfo error
+      where
+        error.processInstanceId =:processInstanceId  and
+        error.acknowledged in (:ack) 
+      order by 
+        error.errorDate DESC
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query>  
+  
+  <named-query name="getErrorsByProcessInstanceIdNodeName">
+    <query>
+     select
+      new org.kie.internal.runtime.error.ExecutionError(
+      error.errorId,
+      error.type,
+      error.deploymentId,
+      error.processInstanceId,
+      error.processId,
+      error.activityId,
+      error.activityName,
+      error.jobId,
+      error.errorMessage,
+      error.acknowledged,
+      error.acknowledgedBy,
+      error.acknowledgedAt,
+      error.errorDate
+      )
+      from
+        ExecutionErrorInfo error
+      where
+        error.processInstanceId =:processInstanceId  and
+        error.activityName =:nodeName and
+        error.acknowledged in (:ack) 
+      order by 
+        error.errorDate DESC
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query>  
+  
+  <named-query name="getErrors">
+    <query>
+     select
+      new org.kie.internal.runtime.error.ExecutionError(
+      error.errorId,
+      error.type,
+      error.deploymentId,
+      error.processInstanceId,
+      error.processId,
+      error.activityId,
+      error.activityName,
+      error.jobId,
+      error.errorMessage,
+      error.acknowledged,
+      error.acknowledgedBy,
+      error.acknowledgedAt,
+      error.errorDate
+      )
+      from
+        ExecutionErrorInfo error
+      where
+        error.acknowledged in (:ack) 
+      order by 
+        error.errorDate DESC
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query> 
+  
+  <named-query name="getTaskErrors">
+    <query>
+     select
+      new org.kie.internal.runtime.error.ExecutionError(
+      error.errorId,
+      error.type,
+      error.deploymentId,
+      error.processInstanceId,
+      error.processId,
+      error.activityId,
+      error.activityName,
+      error.jobId,
+      error.errorMessage,
+      error.acknowledged,
+      error.acknowledgedBy,
+      error.acknowledgedAt,
+      error.errorDate
+      )
+      from
+        ExecutionErrorInfo error
+      where
+        error.type= 'Task' and
+        error.acknowledged in (:ack) 
+      order by 
+        error.errorDate DESC
+    </query>
+    <!-- hint name="org.hibernate.timeout" value="200"/ -->
+  </named-query>   
+        
 </entity-mappings>

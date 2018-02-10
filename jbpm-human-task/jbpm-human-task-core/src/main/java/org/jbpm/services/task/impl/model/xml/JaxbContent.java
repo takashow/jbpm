@@ -1,3 +1,19 @@
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jbpm.services.task.impl.model.xml;
 
 import static org.jbpm.services.task.impl.model.xml.AbstractJaxbTaskObject.unsupported;
@@ -14,14 +30,15 @@ import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlSchemaType;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
-import org.codehaus.jackson.annotate.JsonAutoDetect;
-import org.codehaus.jackson.annotate.JsonIgnore;
+import org.jbpm.services.task.utils.ContentMarshallerHelper;
 import org.kie.api.task.model.Content;
 import org.kie.internal.jaxb.StringKeyObjectValueMapXmlAdapter;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+
 @XmlRootElement(name="content")
 @XmlAccessorType(XmlAccessType.FIELD)
-@JsonAutoDetect(getterVisibility=JsonAutoDetect.Visibility.NONE, fieldVisibility=JsonAutoDetect.Visibility.ANY)
+@JsonAutoDetect(getterVisibility=JsonAutoDetect.Visibility.NONE, setterVisibility=JsonAutoDetect.Visibility.NONE, fieldVisibility=JsonAutoDetect.Visibility.ANY)
 public class JaxbContent implements Content {
 
     @XmlElement
@@ -31,7 +48,6 @@ public class JaxbContent implements Content {
     @XmlSchemaType(name="base64Binary")
     private byte[] content = null;
     
-    @XmlElement(name="content-map")
     @XmlJavaTypeAdapter(StringKeyObjectValueMapXmlAdapter.class)
     private Map<String, Object> contentMap = null;
     
@@ -43,12 +59,26 @@ public class JaxbContent implements Content {
         initialize(content);
     }
     
-    public void initialize(Content content) { 
+    @SuppressWarnings("unchecked")
+    public void initialize(Content content) {
         if( content == null || content.getId() == -1) { 
             return; 
         }
         this.id = content.getId();
         this.content = content.getContent();
+        if( content instanceof JaxbContent ) { 
+            this.contentMap = ((JaxbContent) content).getContentMap();
+        } else { 
+            try {
+                Object unmarshalledContent = ContentMarshallerHelper.unmarshall(content.getContent(), null);
+                if( unmarshalledContent != null && unmarshalledContent instanceof Map ) { 
+                    contentMap = (Map<String, Object>) unmarshalledContent;
+                }
+            } catch (Exception e) {
+                // don't fail in case of unmarshalling problem as it might be content not handled via jaxb 
+                // Ļe.g. custom classes, non map based etc
+            }
+        }
     }
     
     @Override
@@ -73,19 +103,22 @@ public class JaxbContent implements Content {
     }
 
     @Override
-    public long getId() {
+    public Long getId() {
         return this.id;
     } 
     
     public void setId(Long id) {
         this.id = id; 
-    } 
-    
-    public void readExternal(ObjectInput arg0) throws IOException, ClassNotFoundException {
+    }
+
+    @Override
+    public void writeExternal( ObjectOutput out ) throws IOException {
         unsupported(Content.class);
     }
 
-    public void writeExternal(ObjectOutput arg0) throws IOException {
+    @Override
+    public void readExternal( ObjectInput in ) throws IOException, ClassNotFoundException {
         unsupported(Content.class);
-    }
+    } 
+    
 }

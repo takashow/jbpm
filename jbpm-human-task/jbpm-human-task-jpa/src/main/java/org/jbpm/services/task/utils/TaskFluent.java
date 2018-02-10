@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -28,10 +28,6 @@ import org.kie.api.task.model.I18NText;
 import org.kie.api.task.model.OrganizationalEntity;
 import org.kie.api.task.model.Task;
 
-/**
- *
- * @author salaboy
-*/
 public class TaskFluent {
 
     private TaskImpl task;
@@ -179,6 +175,16 @@ public class TaskFluent {
         }
         assignments.getBusinessAdministrators().add(new GroupImpl(groupId));
         
+        return this;
+    }
+     
+    public TaskFluent setFormName(String formName){
+        task.setFormName(formName);
+        return this;
+    }
+    
+    public TaskFluent setDeploymentID(String deploymentId){
+        ((TaskDataImpl)task.getTaskData()).setDeploymentId(deploymentId);
         return this;
     }
 

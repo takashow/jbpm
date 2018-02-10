@@ -1,11 +1,11 @@
-/**
- * Copyright 2005 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,18 +22,36 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import org.jbpm.process.core.Context;
+import org.jbpm.process.core.ContextContainer;
+import org.jbpm.process.core.context.AbstractContext;
+import org.jbpm.process.core.impl.ContextContainerImpl;
 import org.kie.api.definition.process.Connection;
 
 /**
  * Default implementation of a RuleSet node.
  * 
- * @author <a href="mailto:kris_verlaenen@hotmail.com">Kris Verlaenen</a>
  */
-public class RuleSetNode extends StateBasedNode {
+public class RuleSetNode extends StateBasedNode implements ContextContainer {
 
     private static final long serialVersionUID = 510l;
+    
+    public static final String DRL_LANG = "http://www.jboss.org/drools/rule";
+    public static final String DMN_LANG = "http://www.jboss.org/drools/dmn";
 
+    private String language = DRL_LANG;
+
+    // NOTE: ContetxInstances are not persisted as current functionality (exception scope) does not require it
+    private ContextContainer contextContainer = new ContextContainerImpl();
+    
+    // drl related properties
     private String ruleFlowGroup;
+    
+    // dmn related properties
+    private String namespace;
+    private String model;
+    private String decision;
+    
     private List<DataAssociation> inMapping = new LinkedList<DataAssociation>();
     private List<DataAssociation> outMapping = new LinkedList<DataAssociation>();
     
@@ -45,6 +63,38 @@ public class RuleSetNode extends StateBasedNode {
 
     public String getRuleFlowGroup() {
         return this.ruleFlowGroup;
+    }
+    
+    public String getLanguage() {
+        return language;
+    }
+    
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+    
+    public String getNamespace() {
+        return namespace;
+    }
+    
+    public void setNamespace(String namespace) {
+        this.namespace = namespace;
+    }
+    
+    public String getModel() {
+        return model;
+    }
+    
+    public void setModel(String model) {
+        this.model = model;
+    }
+    
+    public String getDecision() {
+        return decision;
+    }
+    
+    public void setDecision(String decision) {
+        this.decision = decision;
     }
 
     public void validateAddIncomingConnection(final String type, final Connection connection) {
@@ -157,4 +207,42 @@ public class RuleSetNode extends StateBasedNode {
         return this.parameters.get(param);
     }
     
+    public Object removeParameter(String param) {
+        return this.parameters.remove(param);
+    }
+    
+    public boolean isDMN() {
+        return DMN_LANG.equals(language);
+    }
+
+    public List<Context> getContexts(String contextType) {
+        return contextContainer.getContexts(contextType);
+    }
+
+    public void addContext(Context context) {
+        ((AbstractContext) context).setContextContainer(this);
+        contextContainer.addContext(context);
+    }
+
+    public Context getContext(String contextType, long id) {
+        return contextContainer.getContext(contextType, id);
+    }
+
+    public void setDefaultContext(Context context) {
+        ((AbstractContext) context).setContextContainer(this);
+        contextContainer.setDefaultContext(context);
+    }
+
+    public Context getDefaultContext(String contextType) {
+        return contextContainer.getDefaultContext(contextType);
+    }
+
+    @Override
+    public Context getContext(String contextId) {
+        Context context = getDefaultContext(contextId);
+        if (context != null) {
+            return context;
+        }
+        return super.getContext(contextId);
+    }
 }

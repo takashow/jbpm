@@ -1,3 +1,19 @@
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jbpm.services.task.identity;
 
 import static org.junit.Assert.assertEquals;
@@ -13,11 +29,11 @@ import java.sql.PreparedStatement;
 import java.util.List;
 import java.util.Properties;
 
+import org.jbpm.persistence.util.PersistenceUtil;
+import org.jbpm.test.util.PoolingDataSource;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import bitronix.tm.resource.jdbc.PoolingDataSource;
 
 public class DBUserGroupCallbackImplTest {
 
@@ -33,8 +49,6 @@ public class DBUserGroupCallbackImplTest {
         pds = new PoolingDataSource();
         pds.setUniqueName("jdbc/jbpm-ds");
         pds.setClassName(dsProps.getProperty("className"));
-        pds.setMaxPoolSize(Integer.parseInt(dsProps.getProperty("maxPoolSize")));
-        pds.setAllowLocalTransactions(Boolean.parseBoolean(dsProps.getProperty("allowLocalTransactions")));
         for (String propertyName : new String[]{"user", "password"}) {
             pds.getDriverProperties().put(propertyName, dsProps.getProperty(propertyName));
         }
@@ -149,7 +163,7 @@ public class DBUserGroupCallbackImplTest {
     public void testUserGroups() {
 
         DBUserGroupCallbackImpl callback = new DBUserGroupCallbackImpl(props);
-        List<String> groups = callback.getGroupsForUser("john", null, null);
+        List<String> groups = callback.getGroupsForUser("john");
         assertNotNull(groups);
         assertEquals(1, groups.size());
         assertEquals("PM", groups.get(0));
@@ -175,7 +189,7 @@ public class DBUserGroupCallbackImplTest {
     public void testNoUserGroups() {
 
         DBUserGroupCallbackImpl callback = new DBUserGroupCallbackImpl(props);
-        List<String> groups = callback.getGroupsForUser("mike", null, null);
+        List<String> groups = callback.getGroupsForUser("mike");
         assertNotNull(groups);
         assertEquals(0, groups.size());
 
@@ -186,7 +200,7 @@ public class DBUserGroupCallbackImplTest {
 
         Properties invalidProps = new Properties();
         DBUserGroupCallbackImpl callback = new DBUserGroupCallbackImpl(invalidProps);
-        callback.getGroupsForUser("mike", null, null);
+        callback.getGroupsForUser("mike");
         fail("Should fail as it does not have valid configuration");
 
     }
@@ -195,51 +209,12 @@ public class DBUserGroupCallbackImplTest {
     public void testInvalidArgument() {
 
         DBUserGroupCallbackImpl callback = new DBUserGroupCallbackImpl(props);
-        callback.getGroupsForUser(null, null, null);
+        callback.getGroupsForUser(null);
         fail("Should fail as it does not have valid configuration");
 
     }
 
     private void setDatabaseSpecificDataSourceProperties(PoolingDataSource pds, Properties dsProps) {
-        String driverClass = dsProps.getProperty("driverClassName");
-        if (driverClass.startsWith("org.h2")) {
-            for (String propertyName : new String[]{"url", "driverClassName"}) {
-                pds.getDriverProperties().put(propertyName, dsProps.getProperty(propertyName));
-            }
-        } else {
-
-            if (driverClass.startsWith("oracle")) {
-                pds.getDriverProperties().put("driverType", "thin");
-                pds.getDriverProperties().put("URL", dsProps.getProperty("url"));
-            } else if (driverClass.startsWith("com.ibm.db2")) {
-                for (String propertyName : new String[]{"databaseName", "portNumber", "serverName"}) {
-                    pds.getDriverProperties().put(propertyName, dsProps.getProperty(propertyName));
-                }
-                pds.getDriverProperties().put("driverType", "4");
-            } else if (driverClass.startsWith("com.microsoft")) {
-                for (String propertyName : new String[]{"serverName", "portNumber", "databaseName"}) {
-                    pds.getDriverProperties().put(propertyName, dsProps.getProperty(propertyName));
-                }
-                pds.getDriverProperties().put("URL", dsProps.getProperty("url"));
-                pds.getDriverProperties().put("selectMethod", "cursor");
-                pds.getDriverProperties().put("InstanceName", "MSSQL01");
-            } else if (driverClass.startsWith("com.mysql")) {
-                for (String propertyName : new String[]{"databaseName", "serverName", "portNumber", "url"}) {
-                    pds.getDriverProperties().put(propertyName, dsProps.getProperty(propertyName));
-                }
-            } else if (driverClass.startsWith("com.sybase")) {
-                for (String propertyName : new String[]{"databaseName", "portNumber", "serverName"}) {
-                    pds.getDriverProperties().put(propertyName, dsProps.getProperty(propertyName));
-                }
-                pds.getDriverProperties().put("REQUEST_HA_SESSION", "false");
-                pds.getDriverProperties().put("networkProtocol", "Tds");
-            } else if (driverClass.startsWith("org.postgresql")) {
-                for (String propertyName : new String[]{"databaseName", "portNumber", "serverName"}) {
-                    pds.getDriverProperties().put(propertyName, dsProps.getProperty(propertyName));
-                }
-            } else {
-                throw new RuntimeException("Unknown driver class: " + driverClass);
-            }
-        }
+        PersistenceUtil.setDatabaseSpecificDataSourceProperties(pds, dsProps);
     }
 }

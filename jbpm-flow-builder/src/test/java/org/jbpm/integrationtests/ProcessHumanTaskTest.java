@@ -1,6 +1,20 @@
-package org.jbpm.integrationtests;
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import static org.junit.Assert.*;
+package org.jbpm.integrationtests;
 
 import java.io.Reader;
 import java.io.StringReader;
@@ -11,8 +25,10 @@ import org.jbpm.integrationtests.handler.TestWorkItemHandler;
 import org.jbpm.process.instance.ProcessInstance;
 import org.jbpm.test.util.AbstractBaseTest;
 import org.junit.Test;
+import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.process.WorkItem;
-import org.kie.internal.runtime.StatefulKnowledgeSession;
+
+import static org.junit.Assert.*;
 
 public class ProcessHumanTaskTest extends AbstractBaseTest {
    
@@ -33,18 +49,18 @@ public class ProcessHumanTaskTest extends AbstractBaseTest {
             "    <humanTask id=\"2\" name=\"HumanTask\" >\n" +
             "      <work name=\"Human Task\" >\n" +
             "        <parameter name=\"ActorId\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "          <value>John Doe</value>\n" +
             "        </parameter>\n" +
             "        <parameter name=\"TaskName\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "          <value>Do something</value>\n" +
             "        </parameter>\n" +
             "        <parameter name=\"Priority\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "        </parameter>\n" +
             "        <parameter name=\"Comment\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "        </parameter>\n" +
             "      </work>\n" +
             "    </humanTask>\n" +
@@ -59,7 +75,7 @@ public class ProcessHumanTaskTest extends AbstractBaseTest {
             "</process>");
         builder.addRuleFlow(source);
         
-        StatefulKnowledgeSession workingMemory = createKieSession(builder.getPackage());
+        KieSession workingMemory = createKieSession(builder.getPackages());
         
         TestWorkItemHandler handler = new TestWorkItemHandler();
         workingMemory.getWorkItemManager().registerWorkItemHandler("Human Task", handler);
@@ -92,37 +108,39 @@ public class ProcessHumanTaskTest extends AbstractBaseTest {
             "    <humanTask id=\"2\" name=\"HumanTask\" swimlane=\"actor1\" >\n" +
             "      <work name=\"Human Task\" >\n" +
             "        <parameter name=\"ActorId\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "          <value>John Doe</value>\n" +
             "        </parameter>\n" +
             "        <parameter name=\"TaskName\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "          <value>Do something</value>\n" +
             "        </parameter>\n" +
             "        <parameter name=\"Priority\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "        </parameter>\n" +
             "        <parameter name=\"Comment\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "        </parameter>\n" +
             "      </work>\n" +
+            "      <mapping type=\"out\" from=\"ActorId\" to=\"ActorId\" />" +
             "    </humanTask>\n" +
             "    <humanTask id=\"3\" name=\"HumanTask\" swimlane=\"actor1\" >\n" +
             "      <work name=\"Human Task\" >\n" +
             "        <parameter name=\"ActorId\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "        </parameter>\n" +
             "        <parameter name=\"TaskName\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "          <value>Do something else</value>\n" +
             "        </parameter>\n" +
             "        <parameter name=\"Priority\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "        </parameter>\n" +
             "        <parameter name=\"Comment\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "        </parameter>\n" +
             "      </work>\n" +
+            "      <mapping type=\"out\" from=\"ActorId\" to=\"ActorId\" />" +
             "    </humanTask>\n" +
             "    <end id=\"4\" name=\"End\" />\n" +
             "  </nodes>\n" +
@@ -136,7 +154,7 @@ public class ProcessHumanTaskTest extends AbstractBaseTest {
             "</process>");
         builder.addRuleFlow(source);
         
-        StatefulKnowledgeSession workingMemory = createKieSession(builder.getPackage());
+        KieSession workingMemory = createKieSession(builder.getPackages());
         
         TestWorkItemHandler handler = new TestWorkItemHandler();
         workingMemory.getWorkItemManager().registerWorkItemHandler("Human Task", handler);
@@ -175,18 +193,18 @@ public class ProcessHumanTaskTest extends AbstractBaseTest {
             "    <humanTask id=\"2\" name=\"HumanTask\" >\n" +
             "      <work name=\"Human Task\" >\n" +
             "        <parameter name=\"ActorId\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "          <value>John Doe</value>\n" +
             "        </parameter>\n" +
             "        <parameter name=\"TaskName\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "          <value>Do something</value>\n" +
             "        </parameter>\n" +
             "        <parameter name=\"Priority\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "        </parameter>\n" +
             "        <parameter name=\"Comment\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "        </parameter>\n" +
             "      </work>\n" +
             "    </humanTask>\n" +
@@ -201,7 +219,7 @@ public class ProcessHumanTaskTest extends AbstractBaseTest {
             "</process>");
         builder.addRuleFlow(source);
         
-        StatefulKnowledgeSession workingMemory = createKieSession(builder.getPackage());
+        KieSession workingMemory = createKieSession(builder.getPackages());
         
         TestWorkItemHandler handler = new TestWorkItemHandler();
         workingMemory.getWorkItemManager().registerWorkItemHandler("Human Task", handler);
@@ -231,18 +249,18 @@ public class ProcessHumanTaskTest extends AbstractBaseTest {
             "    <humanTask id=\"2\" name=\"HumanTask\" >\n" +
             "      <work name=\"Human Task\" >\n" +
             "        <parameter name=\"ActorId\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "          <value>John Doe</value>\n" +
             "        </parameter>\n" +
             "        <parameter name=\"TaskName\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "          <value>Do something</value>\n" +
             "        </parameter>\n" +
             "        <parameter name=\"Priority\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "        </parameter>\n" +
             "        <parameter name=\"Comment\" >\n" +
-            "          <type name=\"org.drools.core.process.core.datatype.impl.type.StringDataType\" />\n" +
+            "          <type name=\"org.jbpm.process.core.datatype.impl.type.StringDataType\" />\n" +
             "        </parameter>\n" +
             "      </work>\n" +
             "      <onExit>\n" +
@@ -260,7 +278,7 @@ public class ProcessHumanTaskTest extends AbstractBaseTest {
             "</process>");
         builder.addRuleFlow(source);
         
-        StatefulKnowledgeSession workingMemory = createKieSession(builder.getPackage());
+        KieSession workingMemory = createKieSession(builder.getPackages());
         
         TestWorkItemHandler handler = new TestWorkItemHandler();
         workingMemory.getWorkItemManager().registerWorkItemHandler("Human Task", handler);

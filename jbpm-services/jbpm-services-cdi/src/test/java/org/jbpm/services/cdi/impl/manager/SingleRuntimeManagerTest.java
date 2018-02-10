@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,6 +19,7 @@ package org.jbpm.services.cdi.impl.manager;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,16 +33,21 @@ import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ArchivePaths;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
-import org.jbpm.kie.test.util.AbstractBaseTest;
+import org.jbpm.kie.test.util.AbstractKieServicesBaseTest;
 import org.jbpm.runtime.manager.util.TestUtil;
+import org.jbpm.services.task.commands.TaskCommand;
+import org.jbpm.services.task.impl.command.CommandBasedTaskService;
 import org.junit.After;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.kie.api.runtime.Context;
+import org.kie.api.runtime.EnvironmentName;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.manager.RuntimeEngine;
 import org.kie.api.runtime.manager.RuntimeManager;
 import org.kie.api.runtime.process.ProcessInstance;
+import org.kie.api.task.TaskService;
 import org.kie.api.task.model.Status;
 import org.kie.api.task.model.TaskSummary;
 import org.kie.internal.runtime.manager.cdi.qualifier.PerProcessInstance;
@@ -51,7 +57,7 @@ import org.kie.internal.runtime.manager.context.EmptyContext;
 import org.kie.internal.runtime.manager.context.ProcessInstanceIdContext;
 
 @RunWith(Arquillian.class)
-public class SingleRuntimeManagerTest extends AbstractBaseTest {
+public class SingleRuntimeManagerTest extends AbstractKieServicesBaseTest {
     
     @Deployment()
     public static Archive<?> createDeployment() {
@@ -76,6 +82,7 @@ public class SingleRuntimeManagerTest extends AbstractBaseTest {
                 .addPackage("org.jbpm.services.task.subtask")
                 .addPackage("org.jbpm.services.task.rule")
                 .addPackage("org.jbpm.services.task.rule.impl")
+                .addPackage("org.jbpm.services.task.audit.service")
 
                 .addPackage("org.kie.internal.runtime.manager")
                 .addPackage("org.kie.internal.runtime.manager.context")
@@ -101,16 +108,24 @@ public class SingleRuntimeManagerTest extends AbstractBaseTest {
                 .addPackage("org.jbpm.kie.services.impl.audit")
                 .addPackage("org.jbpm.kie.services.impl.form")
                 .addPackage("org.jbpm.kie.services.impl.form.provider")
+                .addPackage("org.jbpm.kie.services.impl.query")  
+                .addPackage("org.jbpm.kie.services.impl.query.mapper")  
+                .addPackage("org.jbpm.kie.services.impl.query.persistence")  
+                .addPackage("org.jbpm.kie.services.impl.query.preprocessor")  
                 
                 .addPackage("org.jbpm.services.cdi")
                 .addPackage("org.jbpm.services.cdi.impl")
                 .addPackage("org.jbpm.services.cdi.impl.form")
                 .addPackage("org.jbpm.services.cdi.impl.manager")
                 .addPackage("org.jbpm.services.cdi.producer")
+                .addPackage("org.jbpm.services.cdi.impl.security")
+                .addPackage("org.jbpm.services.cdi.impl.query")
                 
                 .addPackage("org.jbpm.kie.services.test")
                 .addPackage("org.jbpm.services.cdi.test") // Identity Provider Test Impl here
                 .addClass("org.jbpm.services.cdi.test.util.CDITestHelperNoTaskService")
+                .addClass("org.jbpm.services.cdi.test.util.CountDownDeploymentListenerCDIImpl")
+                .addClass("org.jbpm.kie.services.test.objects.CoundDownDeploymentListener")
                 .addAsResource("jndi.properties","jndi.properties")
                 .addAsManifestResource("META-INF/persistence.xml", ArchivePaths.create("persistence.xml"))
                 .addAsManifestResource("META-INF/Taskorm.xml", ArchivePaths.create("Taskorm.xml"))
@@ -159,7 +174,7 @@ public class SingleRuntimeManagerTest extends AbstractBaseTest {
         
         RuntimeEngine runtime = singletonManager.getRuntimeEngine(EmptyContext.get());
         assertNotNull(runtime);
-        testProcessStartOnManager(runtime);
+        testProcessStartOnManager(runtime, singletonManager);
         
         singletonManager.disposeRuntimeEngine(runtime);     
     }
@@ -170,7 +185,7 @@ public class SingleRuntimeManagerTest extends AbstractBaseTest {
         
         RuntimeEngine runtime = perRequestManager.getRuntimeEngine(EmptyContext.get());
         assertNotNull(runtime);
-        testProcessStartOnManager(runtime);   
+        testProcessStartOnManager(runtime, perRequestManager);   
         perRequestManager.disposeRuntimeEngine(runtime);
     }
     
@@ -180,12 +195,12 @@ public class SingleRuntimeManagerTest extends AbstractBaseTest {
         
         RuntimeEngine runtime = perProcessInstanceManager.getRuntimeEngine(ProcessInstanceIdContext.get());
         assertNotNull(runtime);
-        testProcessStartOnManager(runtime);  
+        testProcessStartOnManager(runtime, perProcessInstanceManager);  
         perProcessInstanceManager.disposeRuntimeEngine(runtime);
     }
     
     
-    private void testProcessStartOnManager(RuntimeEngine runtime) {
+    private void testProcessStartOnManager(RuntimeEngine runtime, RuntimeManager manager) {
         
         
         KieSession ksession = runtime.getKieSession();
@@ -194,15 +209,27 @@ public class SingleRuntimeManagerTest extends AbstractBaseTest {
         ProcessInstance processInstance = ksession.startProcess("UserTask");
         assertNotNull(processInstance);
         
+        TaskService taskService = runtime.getTaskService();
+        String deploymentId = taskService.execute(new TaskCommand<String>() {
+
+            @Override
+            public String execute(Context context) {
+                return (String) context.get(EnvironmentName.DEPLOYMENT_ID);
+            }
+            
+        });       
+        assertNotNull(deploymentId);
+        assertEquals(manager.getIdentifier(), deploymentId);
+        
         List<Status> statuses = new ArrayList<Status>();
         statuses.add(Status.Reserved);
-        List<TaskSummary> tasks = runtime.getTaskService().getTasksOwnedByStatus("john", statuses, "en-UK");
+        List<TaskSummary> tasks = taskService.getTasksOwnedByStatus("john", statuses, "en-UK");
         assertNotNull(tasks);
         assertEquals(1, tasks.size());
         
-        runtime.getTaskService().start(tasks.get(0).getId(), "john");
+        taskService.start(tasks.get(0).getId(), "john");
         
-        runtime.getTaskService().complete(tasks.get(0).getId(), "john", null);
+        taskService.complete(tasks.get(0).getId(), "john", null);
         
         processInstance = ksession.getProcessInstance(processInstance.getId());
         assertNull(processInstance);

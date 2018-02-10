@@ -1,3 +1,19 @@
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jbpm.integrationtests;
 
 import static org.junit.Assert.assertEquals;
@@ -8,10 +24,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.drools.compiler.builder.impl.KnowledgeBuilderImpl.PackageMergeException;
-import org.drools.core.WorkingMemory;
 import org.drools.core.common.InternalAgenda;
-import org.drools.core.event.ActivationCancelledEvent;
 import org.drools.core.event.DefaultAgendaEventListener;
+import org.drools.core.impl.KnowledgeBaseFactory;
 import org.jbpm.test.util.AbstractBaseTest;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -19,11 +34,10 @@ import org.kie.api.KieBase;
 import org.kie.api.KieBaseConfiguration;
 import org.kie.api.event.rule.AgendaEventListener;
 import org.kie.api.event.rule.MatchCancelledEvent;
+import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.api.runtime.rule.FactHandle;
 import org.kie.api.runtime.rule.Match;
-import org.kie.internal.KnowledgeBaseFactory;
-import org.kie.internal.runtime.StatefulKnowledgeSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,7 +58,7 @@ public class ProcessFlowControlTest extends AbstractBaseTest {
         assertEquals( 0,
                       builder.getErrors().getErrors().length );
 
-        StatefulKnowledgeSession session = createKieSession(true, builder.getPackage());
+        KieSession session = createKieSession(true, builder.getPackages());
         List<Integer> inList = new ArrayList<Integer>();
         List<Integer> outList = new ArrayList<Integer>();
         session.setGlobal( "inList",
@@ -122,7 +136,7 @@ public class ProcessFlowControlTest extends AbstractBaseTest {
         builder.addPackageFromDrl( new InputStreamReader( getClass().getResourceAsStream( "ruleflow.drl" ) ) );
         builder.addRuleFlow( new InputStreamReader( getClass().getResourceAsStream( "ruleflow.rfm" ) ) );
 
-        StatefulKnowledgeSession workingMemory = createKieSession(true, builder.getPackage());
+        KieSession workingMemory = createKieSession(true, builder.getPackages());
         
         final List<String> list = new ArrayList<String>();
         workingMemory.setGlobal( "list",
@@ -133,9 +147,8 @@ public class ProcessFlowControlTest extends AbstractBaseTest {
                       list.size() );
 
         final ProcessInstance processInstance = workingMemory.startProcess( "0" );
-        assertEquals( ProcessInstance.STATE_ACTIVE,
-                      processInstance.getState() );
-        workingMemory.fireAllRules();
+        assertEquals( ProcessInstance.STATE_COMPLETED,
+                processInstance.getState() );
         assertEquals( 4,
                       list.size() );
         assertEquals( "Rule1",
@@ -144,8 +157,6 @@ public class ProcessFlowControlTest extends AbstractBaseTest {
         list.subList(1,2).contains( "Rule3" );
         assertEquals( "Rule4",
                       list.get( 3 ) );
-        assertEquals( ProcessInstance.STATE_COMPLETED,
-                      processInstance.getState() );
     }
 
     @Test
@@ -157,7 +168,7 @@ public class ProcessFlowControlTest extends AbstractBaseTest {
         builder.addPackageFromDrl( new InputStreamReader( getClass().getResourceAsStream( "ruleflow.drl" ) ) );
         builder.addRuleFlow( new InputStreamReader( getClass().getResourceAsStream( "ruleflow40.rfm" ) ) );
         
-        StatefulKnowledgeSession workingMemory = createKieSession(true, builder.getPackage());
+        KieSession workingMemory = createKieSession(true, builder.getPackages());
         
         final List<String> list = new ArrayList<String>();
         workingMemory.setGlobal( "list",
@@ -168,9 +179,8 @@ public class ProcessFlowControlTest extends AbstractBaseTest {
                       list.size() );
 
         final ProcessInstance processInstance = workingMemory.startProcess( "0" );
-        assertEquals( ProcessInstance.STATE_ACTIVE,
-                      processInstance.getState() );
-        workingMemory.fireAllRules();
+        assertEquals( ProcessInstance.STATE_COMPLETED,
+                processInstance.getState() );
         assertEquals( 4,
                       list.size() );
         assertEquals( "Rule1",
@@ -179,8 +189,7 @@ public class ProcessFlowControlTest extends AbstractBaseTest {
         list.subList(1,2).contains( "Rule3" );
         assertEquals( "Rule4",
                       list.get( 3 ) );
-        assertEquals( ProcessInstance.STATE_COMPLETED,
-                      processInstance.getState() );
+        
         // Reset the system property so that automatic conversion should not happen
         System.setProperty( "drools.ruleflow.port",
                             "false" );
@@ -191,7 +200,7 @@ public class ProcessFlowControlTest extends AbstractBaseTest {
         builder.addPackageFromDrl( new InputStreamReader( getClass().getResourceAsStream( "test_ruleflowClear.drl" ) ) );
         builder.addRuleFlow( new InputStreamReader( getClass().getResourceAsStream( "test_ruleflowClear.rfm" ) ) );
         
-        StatefulKnowledgeSession workingMemory = createKieSession(true, builder.getPackage());
+        KieSession workingMemory = createKieSession(true, builder.getPackages());
         
         final List<String> list = new ArrayList<String>();
         workingMemory.setGlobal( "list",
@@ -243,7 +252,7 @@ public class ProcessFlowControlTest extends AbstractBaseTest {
         builder.addPackageFromDrl( new InputStreamReader( getClass().getResourceAsStream( "ruleflow.drl" ) ) );
         builder.addRuleFlow( new InputStreamReader( getClass().getResourceAsStream( "ruleflow.rfm" ) ) );
 
-        final StatefulKnowledgeSession workingMemory = createKieSession(true, builder.getPackage());
+        final KieSession workingMemory = createKieSession(true, builder.getPackages());
         final List<String> list = new ArrayList<String>();
         workingMemory.setGlobal( "list",
                                  list );
@@ -253,9 +262,8 @@ public class ProcessFlowControlTest extends AbstractBaseTest {
                       list.size() );
 
         final ProcessInstance processInstance = workingMemory.startProcess( "0" );
-        assertEquals( ProcessInstance.STATE_ACTIVE,
-                      processInstance.getState() );
-        workingMemory.fireAllRules();
+        assertEquals( ProcessInstance.STATE_COMPLETED,
+                processInstance.getState() );
         assertEquals( 4,
                       list.size() );
         assertEquals( "Rule1",
@@ -264,8 +272,6 @@ public class ProcessFlowControlTest extends AbstractBaseTest {
         list.subList(1,2).contains( "Rule3" );
         assertEquals( "Rule4",
                       list.get( 3 ) );
-        assertEquals( ProcessInstance.STATE_COMPLETED,
-                      processInstance.getState() );
 
     }
 
@@ -274,21 +280,21 @@ public class ProcessFlowControlTest extends AbstractBaseTest {
         // adding ruleflow before adding package
         builder.addRuleFlow( new InputStreamReader( getClass().getResourceAsStream( "ruleflow.rfm" ) ) );
         builder.addPackageFromDrl( new InputStreamReader( getClass().getResourceAsStream( "ruleflow.drl" ) ) );
-        builder.getPackage();
+        builder.getPackages();
     }
 
     @Test
     public void testLoadingRuleFlowInPackage2() throws Exception {
         // only adding ruleflow
         builder.addRuleFlow( new InputStreamReader( getClass().getResourceAsStream( "ruleflow.rfm" ) ) );
-        builder.getPackage();
+        builder.getPackages();
     }
 
     @Test
     public void testLoadingRuleFlowInPackage3() throws Exception {
         // only adding ruleflow without any generated rules
         builder.addRuleFlow( new InputStreamReader( getClass().getResourceAsStream( "empty_ruleflow.rfm" ) ) );
-        builder.getPackage();
+        builder.getPackages();
     }
 
     @Test
@@ -334,7 +340,7 @@ public class ProcessFlowControlTest extends AbstractBaseTest {
     public void testRuleFlowActionDialects() throws Exception {
         builder.addRuleFlow( new InputStreamReader( getClass().getResourceAsStream( "test_ActionDialects.rfm" ) ) );
 
-        final StatefulKnowledgeSession session = createKieSession(true, builder.getPackage());
+        final KieSession session = createKieSession(true, builder.getPackages());
         
         List<String> list = new ArrayList<String>();
         session.setGlobal( "list",
@@ -351,10 +357,10 @@ public class ProcessFlowControlTest extends AbstractBaseTest {
     }
 
     @Test
-    public void testLoadingRuleFlowInPackage7() throws Exception {
-        // loading a ruleflow with errors
+    public void testLoadingRuleFlowNoPackageName() throws Exception {
+        // loading a ruleflow with errors (null package name cause 3 errors)
         builder.addRuleFlow( new InputStreamReader( getClass().getResourceAsStream( "error_ruleflow.rfm" ) ) );
-        assertEquals( 1,
+        assertEquals( 3,
                       builder.getErrors().getErrors().length );
     }
 

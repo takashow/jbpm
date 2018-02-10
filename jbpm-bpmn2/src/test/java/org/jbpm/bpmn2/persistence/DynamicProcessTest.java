@@ -1,8 +1,24 @@
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jbpm.bpmn2.persistence;
 
 import org.drools.core.command.impl.CommandBasedStatefulKnowledgeSession;
-import org.drools.core.command.impl.GenericCommand;
-import org.drools.core.command.impl.KnowledgeCommandContext;
+import org.drools.core.command.impl.ExecutableCommand;
+import org.drools.core.command.impl.RegistryContext;
 import org.jbpm.bpmn2.JbpmBpmn2TestCase;
 import org.jbpm.compiler.xml.XmlRuleFlowProcessDumper;
 import org.jbpm.persistence.session.objects.TestWorkItemHandler;
@@ -23,7 +39,8 @@ import org.kie.api.event.process.ProcessNodeTriggeredEvent;
 import org.kie.api.event.process.ProcessStartedEvent;
 import org.kie.api.event.process.ProcessVariableChangedEvent;
 import org.kie.api.io.Resource;
-import org.kie.internal.command.Context;
+import org.kie.api.runtime.KieSession;
+import org.kie.api.runtime.Context;
 import org.kie.internal.io.ResourceFactory;
 import org.kie.internal.runtime.StatefulKnowledgeSession;
 import org.slf4j.Logger;
@@ -102,9 +119,9 @@ public class DynamicProcessTest extends JbpmBpmn2TestCase {
 		node.setId(4);
 		insertNodeInBetween(process, 2, 3, node);
 		
-		((CommandBasedStatefulKnowledgeSession) ksession).getCommandService().execute(new GenericCommand<Void>() {
+		((CommandBasedStatefulKnowledgeSession) ksession).getRunner().execute(new ExecutableCommand<Void>() {
 			public Void execute(Context context) {
-				StatefulKnowledgeSession ksession = (StatefulKnowledgeSession) ((KnowledgeCommandContext) context).getKieSession();
+				StatefulKnowledgeSession ksession = (StatefulKnowledgeSession) ((RegistryContext) context).lookup( KieSession.class );
 				((ProcessInstanceImpl) ksession.getProcessInstance(processInstance.getId())).updateProcess(process);
 				return null;
 			}

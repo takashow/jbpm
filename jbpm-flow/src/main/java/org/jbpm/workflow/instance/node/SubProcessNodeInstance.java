@@ -1,11 +1,11 @@
-/**
- * Copyright 2005 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.regex.Matcher;
 
 import org.drools.core.common.InternalKnowledgeRuntime;
-import org.drools.core.process.instance.WorkItem;
 import org.drools.core.util.MVELSafeHelper;
 import org.jbpm.process.core.Context;
 import org.jbpm.process.core.ContextContainer;
@@ -40,21 +39,30 @@ import org.jbpm.process.instance.context.variable.VariableScopeInstance;
 import org.jbpm.process.instance.impl.ContextInstanceFactory;
 import org.jbpm.process.instance.impl.ContextInstanceFactoryRegistry;
 import org.jbpm.process.instance.impl.ProcessInstanceImpl;
+import org.jbpm.process.instance.impl.util.VariableUtil;
+import org.jbpm.util.PatternConstants;
 import org.jbpm.workflow.core.node.DataAssociation;
 import org.jbpm.workflow.core.node.SubProcessNode;
 import org.jbpm.workflow.core.node.Transformation;
-import org.jbpm.workflow.instance.WorkflowProcessInstance;
 import org.jbpm.workflow.instance.impl.NodeInstanceResolverFactory;
 import org.jbpm.workflow.instance.impl.VariableScopeResolverFactory;
+import org.jbpm.workflow.instance.impl.WorkflowProcessInstanceImpl;
 import org.kie.api.KieBase;
 import org.kie.api.definition.process.Node;
 import org.kie.api.definition.process.Process;
+import org.kie.api.runtime.EnvironmentName;
+import org.kie.api.runtime.KieRuntime;
 import org.kie.api.runtime.manager.RuntimeEngine;
 import org.kie.api.runtime.manager.RuntimeManager;
 import org.kie.api.runtime.process.DataTransformer;
 import org.kie.api.runtime.process.EventListener;
 import org.kie.api.runtime.process.NodeInstance;
-import org.kie.internal.runtime.KnowledgeRuntime;
+import org.kie.internal.KieInternalServices;
+import org.kie.internal.process.CorrelationAwareProcessRuntime;
+import org.kie.internal.process.CorrelationKey;
+import org.kie.internal.process.CorrelationKeyFactory;
+import org.kie.internal.runtime.manager.SessionNotFoundException;
+import org.kie.internal.runtime.manager.context.CaseContext;
 import org.kie.internal.runtime.manager.context.ProcessInstanceIdContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,7 +70,6 @@ import org.slf4j.LoggerFactory;
 /**
  * Runtime counterpart of a SubFlow node.
  * 
- * @author <a href="mailto:kris_verlaenen@hotmail.com">Kris Verlaenen</a>
  */
 public class SubProcessNodeInstance extends StateBasedNodeInstance implements EventListener, ContextInstanceContainer {
 
@@ -72,9 +79,9 @@ public class SubProcessNodeInstance extends StateBasedNodeInstance implements Ev
     // NOTE: ContetxInstances are not persisted as current functionality (exception scope) does not require it
     private Map<String, ContextInstance> contextInstances = new HashMap<String, ContextInstance>();
     private Map<String, List<ContextInstance>> subContextInstances = new HashMap<String, List<ContextInstance>>();
-    
+
     private long processInstanceId;
-	
+
     protected SubProcessNode getSubProcessNode() {
         return (SubProcessNode) getNode();
     }
@@ -98,10 +105,10 @@ public class SubProcessNodeInstance extends StateBasedNodeInstance implements Ev
             	DataTransformer transformer = DataTransformerRegistry.get().find(transformation.getLanguage());
             	if (transformer != null) {
             		parameterValue = transformer.transform(transformation.getCompiledExpression(), getSourceParameters(mapping));
-            		
+
             	}
             } else {
-        	
+
 	            VariableScopeInstance variableScopeInstance = (VariableScopeInstance)
 	                resolveContextInstance(VariableScope.VARIABLE_SCOPE, mapping.getSources().get(0));
 	            if (variableScopeInstance != null) {
@@ -110,14 +117,19 @@ public class SubProcessNodeInstance extends StateBasedNodeInstance implements Ev
 	            	try {
 	            		parameterValue = MVELSafeHelper.getEvaluator().eval(mapping.getSources().get(0), new NodeInstanceResolverFactory(this));
 	            	} catch (Throwable t) {
-	            	    logger.error("Could not find variable scope for variable {}", mapping.getSources().get(0));
-	            	    logger.error("when trying to execute SubProcess node {}", getSubProcessNode().getName());
-	            	    logger.error("Continuing without setting parameter.");
+	            	    parameterValue = VariableUtil.resolveVariable(mapping.getSources().get(0), this);
+	                    if (parameterValue != null) {
+	                        parameters.put(mapping.getTarget(), parameterValue);
+	                    } else {
+    	            	    logger.error("Could not find variable scope for variable {}", mapping.getSources().get(0));
+    	            	    logger.error("when trying to execute SubProcess node {}", getSubProcessNode().getName());
+    	            	    logger.error("Continuing without setting parameter.");
+	                    }
 	            	}
 	            }
             }
             if (parameterValue != null) {
-            	parameters.put(mapping.getTarget(),parameterValue); 
+            	parameters.put(mapping.getTarget(),parameterValue);
             }
         }
         String processId = getSubProcessNode().getProcessId();
@@ -127,7 +139,7 @@ public class SubProcessNodeInstance extends StateBasedNodeInstance implements Ev
         }
         // resolve processId if necessary
         Map<String, String> replacements = new HashMap<String, String>();
-		Matcher matcher = PARAMETER_MATCHER.matcher(processId);
+		Matcher matcher = PatternConstants.PARAMETER_MATCHER.matcher(processId);
         while (matcher.find()) {
         	String paramName = matcher.group(1);
         	if (replacements.get(paramName) == null) {
@@ -135,7 +147,7 @@ public class SubProcessNodeInstance extends StateBasedNodeInstance implements Ev
                 	resolveContextInstance(VariableScope.VARIABLE_SCOPE, paramName);
                 if (variableScopeInstance != null) {
                     Object variableValue = variableScopeInstance.getVariable(paramName);
-                	String variableValueString = variableValue == null ? "" : variableValue.toString(); 
+                	String variableValueString = variableValue == null ? "" : variableValue.toString();
 	                replacements.put(paramName, variableValueString);
                 } else {
                 	try {
@@ -156,35 +168,62 @@ public class SubProcessNodeInstance extends StateBasedNodeInstance implements Ev
         KieBase kbase = ((ProcessInstance) getProcessInstance()).getKnowledgeRuntime().getKieBase();
         // start process instance
         Process process = kbase.getProcess(processId);
-        
+
         if (process == null) {
             // try to find it by name
             String latestProcessId = StartProcessHelper.findLatestProcessByName(kbase, processId);
             if (latestProcessId != null) {
                 processId = latestProcessId;
                 process = kbase.getProcess(processId);
-            
+
             }
         }
-        
+
         if (process == null) {
             logger.error("Could not find process {}", processId);
             logger.error("Aborting process");
         	((ProcessInstance) getProcessInstance()).setState(ProcessInstance.STATE_ABORTED);
         	throw new RuntimeException("Could not find process " + processId);
         } else {
-            KnowledgeRuntime kruntime = ((ProcessInstance) getProcessInstance()).getKnowledgeRuntime();
-            RuntimeManager manager = (RuntimeManager) kruntime.getEnvironment().get("RuntimeManager");
+            KieRuntime kruntime = ((ProcessInstance) getProcessInstance()).getKnowledgeRuntime();
+            RuntimeManager manager = (RuntimeManager) kruntime.getEnvironment().get(EnvironmentName.RUNTIME_MANAGER);
             if (manager != null) {
-                RuntimeEngine runtime = manager.getRuntimeEngine(ProcessInstanceIdContext.get());
-                kruntime = (KnowledgeRuntime) runtime.getKieSession();
+                org.kie.api.runtime.manager.Context<?> context = ProcessInstanceIdContext.get();
+                
+                String caseId = (String) kruntime.getEnvironment().get(EnvironmentName.CASE_ID);
+                if (caseId != null) {
+                    context = CaseContext.get(caseId);
+                }
+                
+                RuntimeEngine runtime = manager.getRuntimeEngine(context);
+                kruntime = (KieRuntime) runtime.getKieSession();
             }
-	    	ProcessInstance processInstance = ( ProcessInstance ) kruntime.createProcessInstance(processId, parameters);
+            if (getSubProcessNode().getMetaData("MICollectionInput") != null) {
+                // remove foreach input variable to avoid problems when running in variable strict mode
+                parameters.remove(getSubProcessNode().getMetaData("MICollectionInput"));
+            }
+
+            ProcessInstance processInstance = null;
+            if (((WorkflowProcessInstanceImpl)getProcessInstance()).getCorrelationKey() != null) {
+                // in case there is correlation key on parent instance pass it along to child so it can be easily correlated 
+                // since correlation key must be unique for active instances it appends processId and timestamp
+                List<String> businessKeys = new ArrayList<String>();
+                businessKeys.add(((WorkflowProcessInstanceImpl)getProcessInstance()).getCorrelationKey());
+                businessKeys.add(processId);
+                businessKeys.add(String.valueOf(System.currentTimeMillis()));
+                CorrelationKeyFactory correlationKeyFactory = KieInternalServices.Factory.get().newCorrelationKeyFactory();
+                CorrelationKey subProcessCorrelationKey = correlationKeyFactory.newCorrelationKey(businessKeys);
+                processInstance = (ProcessInstance) ((CorrelationAwareProcessRuntime)kruntime).createProcessInstance(processId, subProcessCorrelationKey, parameters);
+            } else {
+                processInstance = ( ProcessInstance ) kruntime.createProcessInstance(processId, parameters);
+            }
 	    	this.processInstanceId = processInstance.getId();
 	    	((ProcessInstanceImpl) processInstance).setMetaData("ParentProcessInstanceId", getProcessInstance().getId());
 	    	((ProcessInstanceImpl) processInstance).setMetaData("ParentNodeInstanceId", getUniqueId());
 	    	((ProcessInstanceImpl) processInstance).setMetaData("ParentNodeId", getSubProcessNode().getUniqueId());
 	    	((ProcessInstanceImpl) processInstance).setParentProcessInstanceId(getProcessInstance().getId());
+	    	((ProcessInstanceImpl) processInstance).setSignalCompletion(getSubProcessNode().isWaitForCompletion());
+
 	    	kruntime.startProcessInstance(processInstance.getId());
 	    	if (!getSubProcessNode().isWaitForCompletion()) {
 	    		triggerCompleted();
@@ -196,31 +235,43 @@ public class SubProcessNodeInstance extends StateBasedNodeInstance implements Ev
 	    	}
         }
     }
-    
+
     public void cancel() {
         super.cancel();
         if (getSubProcessNode() == null || !getSubProcessNode().isIndependent()) {
         	ProcessInstance processInstance = null;
         	InternalKnowledgeRuntime kruntime = ((ProcessInstance) getProcessInstance()).getKnowledgeRuntime();
-        	RuntimeManager manager = (RuntimeManager) kruntime.getEnvironment().get("RuntimeManager");
+        	RuntimeManager manager = (RuntimeManager) kruntime.getEnvironment().get(EnvironmentName.RUNTIME_MANAGER);
         	if (manager != null) {
-        		RuntimeEngine runtime = manager.getRuntimeEngine(ProcessInstanceIdContext.get(processInstanceId));
-                KnowledgeRuntime managedkruntime = (KnowledgeRuntime) runtime.getKieSession();
-        		processInstance = (ProcessInstance) managedkruntime.getProcessInstance(processInstanceId);
+        	    try {
+            	    org.kie.api.runtime.manager.Context<?> context = ProcessInstanceIdContext.get(processInstanceId);
+                    
+                    String caseId = (String) kruntime.getEnvironment().get(EnvironmentName.CASE_ID);
+                    if (caseId != null) {
+                        context = CaseContext.get(caseId);
+                    }
+                    
+                    RuntimeEngine runtime = manager.getRuntimeEngine(context);
+
+                    KieRuntime managedkruntime = (KieRuntime) runtime.getKieSession();
+            		processInstance = (ProcessInstance) managedkruntime.getProcessInstance(processInstanceId);
+        	    } catch (SessionNotFoundException e) {
+        	        // in case no session is found for parent process let's skip signal for process instance completion
+        	    }
         	} else {
-        		processInstance = (ProcessInstance) kruntime.getProcessInstance(processInstanceId);	
+        		processInstance = (ProcessInstance) kruntime.getProcessInstance(processInstanceId);
         	}
-            
+
             if (processInstance != null) {
             	processInstance.setState(ProcessInstance.STATE_ABORTED);
             }
         }
     }
-    
+
     public long getProcessInstanceId() {
     	return processInstanceId;
     }
-    
+
     public void internalSetProcessInstanceId(long processInstanceId) {
     	this.processInstanceId = processInstanceId;
     }
@@ -229,7 +280,7 @@ public class SubProcessNodeInstance extends StateBasedNodeInstance implements Ev
         super.addEventListeners();
         addProcessListener();
     }
-    
+
     private void addProcessListener() {
     	getProcessInstance().addEventListener("processInstanceCompleted:" + processInstanceId, this, true);
     }
@@ -239,6 +290,7 @@ public class SubProcessNodeInstance extends StateBasedNodeInstance implements Ev
         getProcessInstance().removeEventListener("processInstanceCompleted:" + processInstanceId, this, true);
     }
 
+    @Override
 	public void signalEvent(String type, Object event) {
 		if (("processInstanceCompleted:" + processInstanceId).equals(type)) {
 			processInstanceCompleted((ProcessInstance) event);
@@ -246,35 +298,42 @@ public class SubProcessNodeInstance extends StateBasedNodeInstance implements Ev
 			super.signalEvent(type, event);
 		}
 	}
-    
+
+    @Override
     public String[] getEventTypes() {
     	return new String[] { "processInstanceCompleted:" + processInstanceId };
     }
-    
+
     public void processInstanceCompleted(ProcessInstance processInstance) {
         removeEventListeners();
         handleOutMappings(processInstance);
         if (processInstance.getState() == ProcessInstance.STATE_ABORTED) {
             String faultName = processInstance.getOutcome()==null?"":processInstance.getOutcome();
             // handle exception as sub process failed with error code
-            ExceptionScopeInstance exceptionScopeInstance = (ExceptionScopeInstance) 
+            ExceptionScopeInstance exceptionScopeInstance = (ExceptionScopeInstance)
                     resolveContextInstance(ExceptionScope.EXCEPTION_SCOPE, faultName);
             if (exceptionScopeInstance != null) {
-                
+
                 exceptionScopeInstance.handleException(faultName, processInstance.getFaultData());
-                cancel();
+                if (getSubProcessNode() != null && !getSubProcessNode().isIndependent() && getSubProcessNode().isAbortParent()){
+                    cancel();
+                }
                 return;
-            } else if (!getSubProcessNode().isIndependent()){
+            } else if (getSubProcessNode() != null && !getSubProcessNode().isIndependent() && getSubProcessNode().isAbortParent()){
                 ((ProcessInstance) getProcessInstance()).setState(ProcessInstance.STATE_ABORTED, faultName);
                 return;
             }
-            
-        }      
+
+        }
+        // handle dynamic subprocess
+        if (getNode() == null) {
+            setMetaData("NodeType", "SubProcessNode");
+        }
         // if there were no exception proceed normally
         triggerCompleted();
-        
+
     }
-    
+
     private void handleOutMappings(ProcessInstance processInstance) {
         VariableScopeInstance subProcessVariableScopeInstance = (VariableScopeInstance)
 	        processInstance.getContextInstance(VariableScope.VARIABLE_SCOPE);
@@ -290,12 +349,12 @@ public class SubProcessNodeInstance extends StateBasedNodeInstance implements Ev
                 		VariableScopeInstance variableScopeInstance = (VariableScopeInstance)
                         resolveContextInstance(VariableScope.VARIABLE_SCOPE, mapping.getTarget());
                         if (variableScopeInstance != null && parameterValue != null) {
-                              
+
                             variableScopeInstance.setVariable(mapping.getTarget(), parameterValue);
                         } else {
                             logger.warn("Could not find variable scope for variable {}", mapping.getTarget());
                             logger.warn("Continuing without setting variable.");
-                        }                		
+                        }
                 	}
                 } else {
 			        VariableScopeInstance variableScopeInstance = (VariableScopeInstance)
@@ -317,9 +376,12 @@ public class SubProcessNodeInstance extends StateBasedNodeInstance implements Ev
 			        }
                 }
 		    }
+        } else {
+            // handle dynamic sub processes without data output mapping            
+            mapDynamicOutputData(subProcessVariableScopeInstance.getVariables());
         }
     }
-    
+
     public String getNodeName() {
     	Node node = getNode();
     	if (node == null) {
@@ -327,7 +389,7 @@ public class SubProcessNodeInstance extends StateBasedNodeInstance implements Ev
     	}
     	return super.getNodeName();
     }
-    
+
 
     @Override
     public List<ContextInstance> getContextInstances(String contextId) {
@@ -382,7 +444,7 @@ public class SubProcessNodeInstance extends StateBasedNodeInstance implements Ev
     public ContextContainer getContextContainer() {
         return getSubProcessNode();
     }
-    
+
     protected Map<String, Object> getSourceParameters(DataAssociation association) {
     	Map<String, Object> parameters = new HashMap<String, Object>();
     	for (String sourceParam : association.getSources()) {
@@ -402,7 +464,7 @@ public class SubProcessNodeInstance extends StateBasedNodeInstance implements Ev
 	        	parameters.put(association.getTarget(), parameterValue);
 	        }
     	}
-    	
+
     	return parameters;
     }
 

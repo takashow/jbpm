@@ -1,11 +1,11 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,13 +31,38 @@ public class ServiceTaskHandler implements WorkItemHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(ServiceTaskHandler.class);
     
+    private String resultVarName;
+    
+    public ServiceTaskHandler() {
+        this("Result");
+    }
+    
+    public ServiceTaskHandler(String resultVarName) {
+        this.resultVarName = resultVarName;
+    }
+
     public void executeWorkItem(WorkItem workItem, WorkItemManager manager) {
         String service = (String) workItem.getParameter("Interface");
+        String interfaceImplementationRef = (String) workItem.getParameter("interfaceImplementationRef"); 
         String operation = (String) workItem.getParameter("Operation");
         String parameterType = (String) workItem.getParameter("ParameterType");
         Object parameter = workItem.getParameter("Parameter");
+        
+        String[] services = {service, interfaceImplementationRef};
+        Class<?> c = null;
+        
+        for(String serv : services) {
+            try {
+                c = Class.forName(serv);
+                break;
+            } catch (ClassNotFoundException cnfe) {
+                if(serv.compareTo(services[services.length - 1]) == 0) {
+                    handleException(cnfe, service, interfaceImplementationRef, operation, parameterType, parameter);
+                }
+            }
+        }
+        
         try {
-            Class<?> c = Class.forName(service);
             Object instance = c.newInstance();
             Class<?>[] classes = null;
             Object[] params = null;
@@ -52,25 +77,25 @@ public class ServiceTaskHandler implements WorkItemHandler {
             Method method = c.getMethod(operation, classes);
             Object result = method.invoke(instance, params);
             Map<String, Object> results = new HashMap<String, Object>();
-            results.put("Result", result);
+            results.put(resultVarName, result);
             manager.completeWorkItem(workItem.getId(), results);
         } catch (ClassNotFoundException cnfe) {
-            handleException(cnfe, service, operation, parameterType, parameter);
+            handleException(cnfe, service, interfaceImplementationRef, operation, parameterType, parameter);
         } catch (InstantiationException ie) {
-            handleException(ie, service, operation, parameterType, parameter);
+            handleException(ie, service, interfaceImplementationRef, operation, parameterType, parameter);
         } catch (IllegalAccessException iae) {
-            handleException(iae, service, operation, parameterType, parameter);
+            handleException(iae, service, interfaceImplementationRef, operation, parameterType, parameter);
         } catch (NoSuchMethodException nsme) {
-            handleException(nsme, service, operation, parameterType, parameter);
+            handleException(nsme, service, interfaceImplementationRef, operation, parameterType, parameter);
         } catch (InvocationTargetException ite) {
-            handleException(ite, service, operation, parameterType, parameter);
+            handleException(ite, service, interfaceImplementationRef, operation, parameterType, parameter);
         } catch( Throwable cause ) { 
-            handleException(cause, service, operation, parameterType, parameter);
+            handleException(cause, service, interfaceImplementationRef, operation, parameterType, parameter);
         }
     }
 
-    private void handleException(Throwable cause, String service, String operation, String paramType, Object param) { 
-        logger.debug("Handling exception {} inside service {} and operation {} with param type {} and value {}",
+    private void handleException(Throwable cause, String service, String interfaceImplementationRef, String operation, String paramType, Object param) { 
+        logger.debug("Handling exception {} inside service {} or {} and operation {} with param type {} and value {}",
                 cause.getMessage(), service, operation, paramType, param);
         WorkItemHandlerRuntimeException wihRe;
         if( cause instanceof InvocationTargetException ) { 
@@ -82,6 +107,7 @@ public class ServiceTaskHandler implements WorkItemHandler {
             wihRe.setStackTrace(cause.getStackTrace());
         }
         wihRe.setInformation("Interface", service);
+        wihRe.setInformation("InterfaceImplementationRef", interfaceImplementationRef);
         wihRe.setInformation("Operation", operation);
         wihRe.setInformation("ParameterType", paramType);
         wihRe.setInformation("Parameter", param);

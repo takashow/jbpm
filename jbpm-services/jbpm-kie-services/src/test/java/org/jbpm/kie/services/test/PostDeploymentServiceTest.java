@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,13 +15,6 @@
  */
 
 package org.jbpm.kie.services.test;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.fail;
-import static org.kie.scanner.MavenRepository.getMavenRepository;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -34,7 +27,7 @@ import java.util.Map;
 import org.drools.compiler.kie.builder.impl.InternalKieModule;
 import org.jbpm.kie.services.impl.KModuleDeploymentService;
 import org.jbpm.kie.services.impl.KModuleDeploymentUnit;
-import org.jbpm.kie.test.util.AbstractBaseTest;
+import org.jbpm.kie.test.util.AbstractKieServicesBaseTest;
 import org.jbpm.services.api.DeploymentEvent;
 import org.jbpm.services.api.DeploymentEventListener;
 import org.jbpm.services.api.model.DeployedUnit;
@@ -48,12 +41,15 @@ import org.kie.api.builder.ReleaseId;
 import org.kie.api.runtime.manager.RuntimeEngine;
 import org.kie.api.runtime.manager.RuntimeManager;
 import org.kie.api.runtime.process.ProcessInstance;
-import org.kie.internal.query.QueryContext;
+import org.kie.api.runtime.query.QueryContext;
 import org.kie.internal.runtime.manager.RuntimeManagerRegistry;
 import org.kie.internal.runtime.manager.context.EmptyContext;
-import org.kie.scanner.MavenRepository;
+import org.kie.scanner.KieMavenRepository;
 
-public class PostDeploymentServiceTest extends AbstractBaseTest {
+import static org.junit.Assert.*;
+import static org.kie.scanner.KieMavenRepository.getKieMavenRepository;
+
+public class PostDeploymentServiceTest extends AbstractKieServicesBaseTest {
     
     
     private List<DeploymentUnit> units = new ArrayList<DeploymentUnit>();
@@ -80,7 +76,7 @@ public class PostDeploymentServiceTest extends AbstractBaseTest {
         } catch (Exception e) {
             
         }
-        MavenRepository repository = getMavenRepository();
+        KieMavenRepository repository = getKieMavenRepository();
         repository.deployArtifact(releaseId, kJar1, pom);
 
     }
@@ -125,7 +121,7 @@ public class PostDeploymentServiceTest extends AbstractBaseTest {
         assertNotNull(processes);
         assertEquals(5, processes.size());
         
-        ProcessDefinition process = runtimeDataService.getProcessById("customtask");
+        ProcessDefinition process = runtimeDataService.getProcessesByDeploymentIdProcessId(deploymentUnit.getIdentifier(), "customtask");
         assertNotNull(process);
         
         RuntimeManager manager = deploymentService.getRuntimeManager(deploymentUnit.getIdentifier());
@@ -156,6 +152,16 @@ public class PostDeploymentServiceTest extends AbstractBaseTest {
 			@Override
 			public void onDeploy(DeploymentEvent event) {
 				throw new IllegalArgumentException("On purpose");
+				
+			}
+
+			@Override
+			public void onActivate(DeploymentEvent event) {
+				
+			}
+
+			@Override
+			public void onDeactivate(DeploymentEvent event) {
 				
 			}
 		});

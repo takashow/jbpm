@@ -1,11 +1,11 @@
-/**
- * Copyright 2005 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,26 +17,23 @@
 package org.jbpm.workflow.instance.node;
 
 import org.drools.core.common.InternalAgenda;
-import org.drools.core.common.InternalKnowledgeRuntime;
 import org.drools.core.definitions.rule.impl.RuleImpl;
-import org.kie.api.definition.rule.Rule;
-import org.kie.api.event.rule.MatchCancelledEvent;
-import org.kie.api.event.rule.MatchCreatedEvent;
+import org.drools.core.spi.Activation;
+import org.jbpm.workflow.core.node.MilestoneNode;
 import org.kie.api.event.rule.AfterMatchFiredEvent;
 import org.kie.api.event.rule.AgendaEventListener;
 import org.kie.api.event.rule.AgendaGroupPoppedEvent;
 import org.kie.api.event.rule.AgendaGroupPushedEvent;
 import org.kie.api.event.rule.BeforeMatchFiredEvent;
+import org.kie.api.event.rule.MatchCancelledEvent;
+import org.kie.api.event.rule.MatchCreatedEvent;
 import org.kie.api.event.rule.RuleFlowGroupActivatedEvent;
 import org.kie.api.event.rule.RuleFlowGroupDeactivatedEvent;
 import org.kie.api.runtime.process.NodeInstance;
-import org.drools.core.spi.Activation;
-import org.jbpm.workflow.core.node.MilestoneNode;
 
 /**
  * Runtime counterpart of a milestone node.
  * 
- * @author <a href="mailto:kris_verlaenen@hotmail.com">Kris Verlaenen</a>
  */
 public class MilestoneNodeInstance extends StateBasedNodeInstance implements AgendaEventListener {
 
@@ -74,11 +71,29 @@ public class MilestoneNodeInstance extends StateBasedNodeInstance implements Age
     
     private void addActivationListener() {
     	getProcessInstance().getKnowledgeRuntime().addEventListener(this);
+    	getProcessInstance().addEventListener(getActivationEventType(), this, true);
     }
 
     public void removeEventListeners() {
         super.removeEventListeners();
         getProcessInstance().getKnowledgeRuntime().removeEventListener(this);
+        getProcessInstance().removeEventListener(getActivationEventType(), this, true);
+    }
+    
+    private String getActivationEventType() {
+        return "RuleFlow-Milestone-" + getProcessInstance().getProcessId()
+            + "-" + getMilestoneNode().getUniqueId();
+    }
+
+    @Override
+    public void signalEvent(String type, Object event) {
+        if (getActivationEventType().equals(type)) {
+            if (event instanceof MatchCreatedEvent) {
+                matchCreated((MatchCreatedEvent) event);
+            }
+        } else {
+            super.signalEvent(type, event);
+        }
     }
 
     public void matchCreated(MatchCreatedEvent event) {
@@ -90,9 +105,6 @@ public class MilestoneNodeInstance extends StateBasedNodeInstance implements Age
             String ruleName = event.getMatch().getRule().getName();
             String milestoneName = "RuleFlow-Milestone-" + getProcessInstance().getProcessId() + "-" + getNodeId();
             if (milestoneName.equals(ruleName) && checkProcessInstance((Activation) event.getMatch())) {
-        		if ( !((InternalKnowledgeRuntime) getProcessInstance().getKnowledgeRuntime()).getActionQueue().isEmpty() ) {
-        			((InternalKnowledgeRuntime) getProcessInstance().getKnowledgeRuntime()).executeQueuedActions();
-                }
             	synchronized(getProcessInstance()) {
 	                removeEventListeners();
 	                triggerCompleted();

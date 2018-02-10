@@ -16,7 +16,7 @@
 
   <process id="RuleTaskWithProcessInstance" tns:packageName="org.jbpm" name="RuleTask Process" isExecutable="true" processType="Private">
 
-    <property id="x" itemSubjectRef="_xItem"/>
+    <property id="fireball" itemSubjectRef="_xItem"/>
 
     <startEvent id="_1" name="Start" />
     <sequenceFlow id="_1-_2" sourceRef="_1" targetRef="_2"/>
@@ -24,7 +24,19 @@
     <businessRuleTask id="_2" name="Rule" g:ruleFlowGroup="memory-rule" />
     <sequenceFlow id="_2-_3" sourceRef="_2" targetRef="_3"/>
 
-    <userTask id="_3" name="Save Point" />
+    <userTask id="_3" name="Save Point" >
+      <ioSpecification>
+        <dataOutput id="_3_result" name="chaerg" />
+        <inputSet/>
+        <outputSet>
+          <dataOutputRefs>_3_result</dataOutputRefs>
+        </outputSet>
+      </ioSpecification>
+      <dataOutputAssociation>
+        <sourceRef>_3_result</sourceRef>
+        <targetRef>fireball</targetRef>
+      </dataOutputAssociation>
+    </userTask>
     <sequenceFlow id="_3-_4" sourceRef="_3" targetRef="_4"/>
 
     <endEvent id="_4" name="End">

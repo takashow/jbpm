@@ -1,11 +1,11 @@
-/**
- * Copyright 2005 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,12 +18,13 @@ package org.jbpm.workflow.core.node;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
 import org.kie.api.definition.process.Connection;
-import org.drools.core.process.core.Work;
+import org.jbpm.process.core.Work;
 import org.jbpm.process.core.Context;
 import org.jbpm.process.core.ContextContainer;
 import org.jbpm.process.core.context.AbstractContext;
@@ -33,7 +34,6 @@ import org.jbpm.process.core.impl.ContextContainerImpl;
 /**
  * Default implementation of a task node.
  * 
- * @author <a href="mailto:kris_verlaenen@hotmail.com">Kris Verlaenen</a>
  */
 public class WorkItemNode extends StateBasedNode implements Mappable, ContextContainer {
 
@@ -92,6 +92,16 @@ public class WorkItemNode extends StateBasedNode implements Mappable, ContextCon
     
     public void addOutMapping(String parameterName, String variableName) {
     	outMapping.add(new DataAssociation(parameterName, variableName, null, null));
+    }
+    
+    public void adjustOutMapping(String forEachOutVariable) {
+    	Iterator<DataAssociation> it = outMapping.iterator();
+    	while (it.hasNext()) {
+    		DataAssociation association = it.next();
+    		if (forEachOutVariable.equals(association.getTarget())) {
+    			it.remove();
+    		}
+    	}
     }
 
     public void setOutMappings(Map<String, String> outMapping) {

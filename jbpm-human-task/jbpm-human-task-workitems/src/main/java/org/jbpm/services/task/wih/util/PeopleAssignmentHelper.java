@@ -1,24 +1,28 @@
-/**
- * Copyright 2010 JBoss Inc
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package org.jbpm.services.task.wih.util;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
+import org.kie.api.runtime.process.CaseAssignment;
+import org.kie.api.runtime.process.CaseData;
 import org.kie.api.runtime.process.WorkItem;
 import org.kie.api.task.model.Group;
 import org.kie.api.task.model.OrganizationalEntity;
@@ -47,7 +51,18 @@ public class PeopleAssignmentHelper {
     public static final String EXCLUDED_OWNER_ID = "ExcludedOwnerId";
     public static final String RECIPIENT_ID = "RecipientId";
     
+    public static final String DEFAULT_ADMIN_USER = System.getProperty("org.jbpm.ht.admin.user", "Administrator");
+    public static final String DEFAULT_ADMIN_GROUP = System.getProperty("org.jbpm.ht.admin.group", "Administrators");
+    
     private String separator;
+    private CaseData caseFile;
+    
+    private String administratorUser = DEFAULT_ADMIN_USER;
+    private String administratorGroup = DEFAULT_ADMIN_GROUP;
+    
+    private Predicate<? super OrganizationalEntity> userFilter = (OrganizationalEntity oe) -> { return oe instanceof User;};
+    private Predicate<? super OrganizationalEntity> groupFilter = (OrganizationalEntity oe) -> { return oe instanceof Group;};
+    private Predicate<? super OrganizationalEntity> noFilter = (OrganizationalEntity oe) -> { return true;};
     
     public PeopleAssignmentHelper() {
         this.separator = System.getProperty("org.jbpm.ht.user.separator", ",");
@@ -55,6 +70,16 @@ public class PeopleAssignmentHelper {
 	
     public PeopleAssignmentHelper(String separator) {
         this.separator = separator;
+    }
+    
+    public PeopleAssignmentHelper(String adminUser, String adminGroup) {
+        this.administratorUser = adminUser;
+        this.administratorGroup = adminGroup;
+    }
+    
+    public PeopleAssignmentHelper(CaseData caseFile) {
+        this();
+        this.caseFile = caseFile;        
     }
     
 	public void handlePeopleAssignments(WorkItem workItem, InternalTask task, InternalTaskData taskData) {
@@ -71,13 +96,17 @@ public class PeopleAssignmentHelper {
 		task.setPeopleAssignments(peopleAssignments);
         
 	}
-	
+	@SuppressWarnings("unchecked")
 	protected void assignActors(WorkItem workItem, PeopleAssignments peopleAssignments, InternalTaskData taskData) {
-		
-        String actorIds = (String) workItem.getParameter(ACTOR_ID);        
-        List<OrganizationalEntity> potentialOwners = peopleAssignments.getPotentialOwners();
+	    List<OrganizationalEntity> potentialOwners = peopleAssignments.getPotentialOwners();
         
-        processPeopleAssignments(actorIds, potentialOwners, true);
+	    Object actorIds = adjustParam(workItem.getParameter(ACTOR_ID), userFilter);        
+	    
+	    if (actorIds instanceof Collection) {
+            processPeopleAssignments((Collection<OrganizationalEntity>)actorIds, potentialOwners);
+        } else {
+            processPeopleAssignments((String)actorIds, potentialOwners, true);
+        }
 
         // Set the first user as creator ID??? hmmm might be wrong
         if (potentialOwners.size() > 0 && taskData.getCreatedBy() == null) {
@@ -88,58 +117,84 @@ public class PeopleAssignmentHelper {
         }
         
 	}
-	
+	@SuppressWarnings("unchecked")
 	protected void assignGroups(WorkItem workItem, PeopleAssignments peopleAssignments) {
-	
-        String groupIds = (String) workItem.getParameter(GROUP_ID);
-        List<OrganizationalEntity> potentialOwners = peopleAssignments.getPotentialOwners();
+	    List<OrganizationalEntity> potentialOwners = peopleAssignments.getPotentialOwners();
+	    
+	    Object groupIds = adjustParam(workItem.getParameter(GROUP_ID), groupFilter);
         
-        processPeopleAssignments(groupIds, potentialOwners, false);
-        
+	    if (groupIds instanceof Collection) {
+            processPeopleAssignments((Collection<OrganizationalEntity>)groupIds, potentialOwners);
+        } else {
+            processPeopleAssignments((String)groupIds, potentialOwners, false);
+        }                  
 	}
-
+	
+	@SuppressWarnings("unchecked")
 	protected void assignBusinessAdministrators(WorkItem workItem, PeopleAssignments peopleAssignments) {
-        String businessAdminGroupIds = (String) workItem.getParameter(BUSINESSADMINISTRATOR_GROUP_ID);
-		String businessAdministratorIds = (String) workItem.getParameter(BUSINESSADMINISTRATOR_ID);
+	    List<OrganizationalEntity> businessAdministrators = peopleAssignments.getBusinessAdministrators();
+	    
+	    Object businessAdminGroupIds = adjustParam(workItem.getParameter(BUSINESSADMINISTRATOR_GROUP_ID), groupFilter);
+	    Object businessAdministratorIds = adjustParam(workItem.getParameter(BUSINESSADMINISTRATOR_ID), userFilter);
 		
-        List<OrganizationalEntity> businessAdministrators = peopleAssignments.getBusinessAdministrators();
+        
         if (!hasAdminAssigned(businessAdministrators)) {
             User administrator = TaskModelProvider.getFactory().newUser();
-        	((InternalOrganizationalEntity) administrator).setId("Administrator");        
+        	((InternalOrganizationalEntity) administrator).setId(administratorUser);        
             businessAdministrators.add(administrator);
             Group adminGroup = TaskModelProvider.getFactory().newGroup();
-        	((InternalOrganizationalEntity) adminGroup).setId("Administrators");        
+        	((InternalOrganizationalEntity) adminGroup).setId(administratorGroup);        
             businessAdministrators.add(adminGroup);
         }
         
-        processPeopleAssignments(businessAdministratorIds, businessAdministrators, true);
-        processPeopleAssignments(businessAdminGroupIds, businessAdministrators, false);
+        if (businessAdministratorIds instanceof Collection) {
+            processPeopleAssignments((Collection<OrganizationalEntity>)businessAdministratorIds, businessAdministrators);
+        } else {
+            processPeopleAssignments((String)businessAdministratorIds, businessAdministrators, true);
+        } 
+        if (businessAdminGroupIds instanceof Collection) {
+            processPeopleAssignments((Collection<OrganizationalEntity>)businessAdminGroupIds, businessAdministrators);
+        } else {
+            processPeopleAssignments((String)businessAdminGroupIds, businessAdministrators, false);
+        }         
 	}
 	
-	protected void assignTaskStakeholders(WorkItem workItem, InternalPeopleAssignments peopleAssignments) {
+	@SuppressWarnings("unchecked")
+    protected void assignTaskStakeholders(WorkItem workItem, InternalPeopleAssignments peopleAssignments) {
+	    List<OrganizationalEntity> taskStakeholders = peopleAssignments.getTaskStakeholders();
+	    Object taskStakehodlerIds = adjustParam(workItem.getParameter(TASKSTAKEHOLDER_ID), noFilter);
 		
-		String taskStakehodlerIds = (String) workItem.getParameter(TASKSTAKEHOLDER_ID);
-		List<OrganizationalEntity> taskStakeholders = peopleAssignments.getTaskStakeholders();
-
-		processPeopleAssignments(taskStakehodlerIds, taskStakeholders, true);
-		
+	    if (taskStakehodlerIds instanceof Collection) {
+            processPeopleAssignments((Collection<OrganizationalEntity>)taskStakehodlerIds, taskStakeholders);
+        } else {
+            processPeopleAssignments((String)taskStakehodlerIds, taskStakeholders, true);
+        }		
 	}
 
+	@SuppressWarnings("unchecked")
     protected void assignExcludedOwners(WorkItem workItem, InternalPeopleAssignments peopleAssignments) {
-
-        String excludedOwnerIds = (String) workItem.getParameter(EXCLUDED_OWNER_ID);
         List<OrganizationalEntity> excludedOwners = peopleAssignments.getExcludedOwners();
-
-        processPeopleAssignments(excludedOwnerIds, excludedOwners, true);
-
+        Object excludedOwnerIds = adjustParam(workItem.getParameter(EXCLUDED_OWNER_ID), userFilter);
+        
+        if (excludedOwnerIds instanceof Collection) {
+            processPeopleAssignments((Collection<OrganizationalEntity>)excludedOwnerIds, excludedOwners);
+        } else {
+            processPeopleAssignments((String)excludedOwnerIds, excludedOwners, true);
+        }
+        
     }
 
+    @SuppressWarnings("unchecked")
     protected void assignRecipients(WorkItem workItem, InternalPeopleAssignments peopleAssignments) {
-
-        String recipientIds = (String) workItem.getParameter(RECIPIENT_ID);
         List<OrganizationalEntity> recipients = peopleAssignments.getRecipients();
-
-        processPeopleAssignments(recipientIds, recipients, true);
+        
+        Object recipientIds = adjustParam(workItem.getParameter(RECIPIENT_ID), noFilter);
+        
+        if (recipientIds instanceof Collection) {
+            processPeopleAssignments((Collection<OrganizationalEntity>)recipientIds, recipients);
+        } else {
+            processPeopleAssignments((String)recipientIds, recipients, true);
+        }
 
     }
 
@@ -174,6 +229,19 @@ public class PeopleAssignmentHelper {
         }
 	}
 	
+   protected void processPeopleAssignments(Collection<OrganizationalEntity> peopleAssignmentIds, List<OrganizationalEntity> organizationalEntities) {
+
+        if (peopleAssignmentIds != null) {            
+            for (OrganizationalEntity entity : peopleAssignmentIds) {
+                
+                boolean exists = organizationalEntities.contains(entity);
+                if (!exists) {                
+                    organizationalEntities.add(entity);
+                }
+            }
+        }
+    }
+	
 	protected InternalPeopleAssignments getNullSafePeopleAssignments(Task task) {
 		
 		InternalPeopleAssignments peopleAssignments = (InternalPeopleAssignments) task.getPeopleAssignments();
@@ -195,11 +263,42 @@ public class PeopleAssignmentHelper {
 	
 	protected boolean hasAdminAssigned(Collection<OrganizationalEntity> businessAdmins) {
 	    for (OrganizationalEntity entity : businessAdmins) {
-	        if ("Administrator".equals(entity.getId()) || "Administrators".equals(entity.getId())) {
+	        if (administratorUser.equals(entity.getId()) || administratorGroup.equals(entity.getId())) {
 	            return true;
 	        }
 	    }
 	    return false;
 	}
+	
+    protected Object adjustParam(Object currentValue, Predicate<? super OrganizationalEntity> filter) {
+        if (currentValue == null || caseFile == null) {
+            return currentValue;
+        }
+        try {
+            
+            if (caseFile instanceof CaseAssignment) {
+                Collection<OrganizationalEntity> foundMatchingAssignment = new ArrayList<>();
+                String[] ids = currentValue.toString().split(separator);
+                for (String id : ids) {
+                    Collection<OrganizationalEntity> tmp = ((CaseAssignment) caseFile).getAssignments(id)
+                            .stream()
+                            .filter(filter)
+                            .collect(Collectors.toList());
+                    
+                    if (tmp.isEmpty()) {
+                        throw new RuntimeException("Case role '" + id + "' has no matching assignments");
+                    }
+                    
+                    foundMatchingAssignment.addAll(tmp);
+                }
+                return foundMatchingAssignment;
+            }
+            
+        } catch (IllegalArgumentException e) {
+            // no role found with given name
+        }
+        
+        return currentValue;
+    }
 	
 }

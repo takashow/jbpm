@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,16 +16,11 @@
 
 package org.jbpm.services.ejb.test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.kie.scanner.MavenRepository.getMavenRepository;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-
 import javax.ejb.EJB;
 
 import org.drools.compiler.kie.builder.impl.InternalKieModule;
@@ -35,6 +30,8 @@ import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.jbpm.kie.services.impl.KModuleDeploymentUnit;
 import org.jbpm.kie.services.impl.store.DeploymentStore;
+import org.jbpm.kie.services.test.objects.CoundDownDeploymentListener;
+import org.jbpm.services.api.ListenerSupport;
 import org.jbpm.services.api.model.DeployedUnit;
 import org.jbpm.services.api.model.DeploymentUnit;
 import org.jbpm.services.ejb.api.DeploymentServiceEJBLocal;
@@ -45,7 +42,10 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.kie.api.KieServices;
 import org.kie.api.builder.ReleaseId;
-import org.kie.scanner.MavenRepository;
+import org.kie.scanner.KieMavenRepository;
+
+import static org.junit.Assert.*;
+import static org.kie.scanner.KieMavenRepository.getKieMavenRepository;
 
 
 @RunWith(Arquillian.class)
@@ -73,7 +73,8 @@ public class DeploymentServiceEJBWithSyncIntegrationTest extends AbstractTestSup
 			throw new IllegalStateException("There is no archive yet generated, run maven build or mvn assembly:assembly");
 		}
 		WebArchive war = ShrinkWrap.createFromZipFile(WebArchive.class, archive);
-		war.addPackage("org.jbpm.services.ejb.test"); // test cases
+		war.addPackage("org.jbpm.services.ejb.test");
+		war.addClass("org.jbpm.kie.services.test.objects.CoundDownDeploymentListener");// test cases
 
 		// deploy test kjar
 		deployKjar();
@@ -101,8 +102,8 @@ public class DeploymentServiceEJBWithSyncIntegrationTest extends AbstractTestSup
         } catch (Exception e) {
             
         }
-        MavenRepository repository = getMavenRepository();
-        repository.deployArtifact(releaseId, kJar1, pom);
+		KieMavenRepository repository = getKieMavenRepository();
+        repository.installArtifact(releaseId, kJar1, pom);
         
         ReleaseId releaseIdSupport = ks.newReleaseId(GROUP_ID, "support", VERSION);
         List<String> processesSupport = new ArrayList<String>();
@@ -119,8 +120,15 @@ public class DeploymentServiceEJBWithSyncIntegrationTest extends AbstractTestSup
             
         }
 
-        repository.deployArtifact(releaseIdSupport, kJar2, pom2);
+        repository.installArtifact(releaseIdSupport, kJar2, pom2);
 	}
+	
+    protected CoundDownDeploymentListener configureListener(int threads) {
+        CoundDownDeploymentListener countDownListener = new CoundDownDeploymentListener(threads);
+        ((ListenerSupport)deploymentService).addListener(countDownListener);
+        
+        return countDownListener;
+    }
     
     @EJB
 	private DeploymentServiceEJBLocal deploymentService;
@@ -130,6 +138,9 @@ public class DeploymentServiceEJBWithSyncIntegrationTest extends AbstractTestSup
     
     @Test
     public void testDeploymentOfProcessesBySync() throws Exception {
+        
+        CoundDownDeploymentListener countDownListener = configureListener(1);
+        
     	DeploymentStore store = new DeploymentStore();
 		store.setCommandService(commandService);
     	Collection<DeployedUnit> deployed = deploymentService.getDeployedUnits();
@@ -140,7 +151,7 @@ public class DeploymentServiceEJBWithSyncIntegrationTest extends AbstractTestSup
 		store.enableDeploymentUnit(unit);
 		units.add(unit);
 		
-		Thread.sleep(3000);
+		countDownListener.waitTillCompleted(10000);
 		
 		deployed = deploymentService.getDeployedUnits();
     	assertNotNull(deployed);
@@ -150,6 +161,8 @@ public class DeploymentServiceEJBWithSyncIntegrationTest extends AbstractTestSup
     
     @Test
     public void testUndeploymentOfProcessesBySync() throws Exception {
+        CoundDownDeploymentListener countDownListener = configureListener(2);
+        
     	DeploymentStore store = new DeploymentStore();
 		store.setCommandService(commandService);
     	Collection<DeployedUnit> deployed = deploymentService.getDeployedUnits();
@@ -164,13 +177,55 @@ public class DeploymentServiceEJBWithSyncIntegrationTest extends AbstractTestSup
     	assertNotNull(deployed);
     	assertEquals(1, deployed.size());
     	
-    	store.disableDeploymentUnit(unit);
+    	countDownListener.waitTillCompleted(1000);
+        
+        store.disableDeploymentUnit(unit);
 
-		Thread.sleep(3000);
+        countDownListener.waitTillCompleted(10000);
 		
 		deployed = deploymentService.getDeployedUnits();
     	assertNotNull(deployed);
     	assertEquals(0, deployed.size());
+    }
+    
+    @Test
+    public void testDeactivateAndActivateOfProcessesBySync() throws Exception {
+        CoundDownDeploymentListener countDownListener = configureListener(2);
+        
+    	DeploymentStore store = new DeploymentStore();
+		store.setCommandService(commandService);
+		
+    	Collection<DeployedUnit> deployed = deploymentService.getDeployedUnits();
+    	assertNotNull(deployed);
+    	assertEquals(0, deployed.size());
+    	
+    	KModuleDeploymentUnit unit = new KModuleDeploymentUnit(GROUP_ID, ARTIFACT_ID, VERSION);    		
+		deploymentService.deploy(unit);
+		units.add(unit);
+
+		deployed = deploymentService.getDeployedUnits();
+    	assertNotNull(deployed);
+    	assertEquals(1, deployed.size());
+    	assertTrue(deployed.iterator().next().isActive());
+    	
+    	store.deactivateDeploymentUnit(unit);
+
+    	countDownListener.waitTillCompleted(10000);
+		
+		deployed = deploymentService.getDeployedUnits();
+    	assertNotNull(deployed);
+    	assertEquals(1, deployed.size());
+    	assertFalse(deployed.iterator().next().isActive());
+    	
+    	store.activateDeploymentUnit(unit);
+
+    	countDownListener.reset(1);
+        countDownListener.waitTillCompleted(10000);
+		
+		deployed = deploymentService.getDeployedUnits();
+    	assertNotNull(deployed);
+    	assertEquals(1, deployed.size());
+    	assertTrue(deployed.iterator().next().isActive());
     }
    
 }

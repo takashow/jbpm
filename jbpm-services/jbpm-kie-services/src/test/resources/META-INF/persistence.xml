@@ -1,13 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<persistence version="2.0"
-             xmlns="http://java.sun.com/xml/ns/persistence" 
-             xmlns:orm="http://java.sun.com/xml/ns/persistence/orm"
+<persistence version="2.1"
+             xmlns="http://xmlns.jcp.org/xml/ns/persistence"
              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-             xsi:schemaLocation="http://java.sun.com/xml/ns/persistence http://java.sun.com/xml/ns/persistence/persistence_2_0.xsd 
-                      http://java.sun.com/xml/ns/persistence/orm http://java.sun.com/xml/ns/persistence/orm_2_0.xsd">
+             xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/persistence http://xmlns.jcp.org/xml/ns/persistence/persistence_2_1.xsd">
 
   <persistence-unit name="org.jbpm.domain" transaction-type="JTA">
-    <provider>org.hibernate.ejb.HibernatePersistence</provider>
+    <provider>org.hibernate.jpa.HibernatePersistenceProvider</provider>
     <jta-data-source>jdbc/testDS1</jta-data-source>       
     <mapping-file>META-INF/Taskorm.xml</mapping-file>
     <mapping-file>META-INF/JBPMorm.xml</mapping-file>
@@ -56,16 +54,23 @@
     
     <!-- Task Audit Classes --> 
     <class>org.jbpm.services.task.audit.impl.model.AuditTaskImpl</class>
+    <class>org.jbpm.services.task.audit.impl.model.TaskVariableImpl</class>
     
     <!-- deployment store -->
     <class>org.jbpm.kie.services.impl.store.DeploymentStoreEntry</class>
+    
+    <!--  query service storage -->
+    <class>org.jbpm.kie.services.impl.query.persistence.QueryDefinitionEntity</class>
+    
+    <!-- error handling -->
+    <class>org.jbpm.runtime.manager.impl.jpa.ExecutionErrorInfo</class>
 
     <properties>
       <property name="hibernate.dialect" value="org.hibernate.dialect.H2Dialect" />
       <property name="hibernate.connection.autocommit" value="false" />
 
       <property name="hibernate.max_fetch_depth" value="3" />
-      <property name="hibernate.hbm2ddl.auto" value="create-drop" />
+      <property name="hibernate.hbm2ddl.auto" value="create" />
       <property name="hibernate.show_sql" value="false" />
 
     

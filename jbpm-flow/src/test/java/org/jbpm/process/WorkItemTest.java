@@ -1,3 +1,19 @@
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jbpm.process;
 
 import java.util.ArrayList;
@@ -8,13 +24,13 @@ import java.util.Map;
 import java.util.Set;
 
 import org.drools.core.WorkItemHandlerNotFoundException;
-import org.drools.core.process.core.ParameterDefinition;
-import org.drools.core.process.core.Work;
-import org.drools.core.process.core.datatype.impl.type.IntegerDataType;
-import org.drools.core.process.core.datatype.impl.type.ObjectDataType;
-import org.drools.core.process.core.datatype.impl.type.StringDataType;
-import org.drools.core.process.core.impl.ParameterDefinitionImpl;
-import org.drools.core.process.core.impl.WorkImpl;
+import org.jbpm.process.core.ParameterDefinition;
+import org.jbpm.process.core.Work;
+import org.jbpm.process.core.datatype.impl.type.IntegerDataType;
+import org.jbpm.process.core.datatype.impl.type.ObjectDataType;
+import org.jbpm.process.core.datatype.impl.type.StringDataType;
+import org.jbpm.process.core.impl.ParameterDefinitionImpl;
+import org.jbpm.process.core.impl.WorkImpl;
 import org.jbpm.process.core.context.variable.Variable;
 import org.jbpm.process.instance.impl.demo.DoNothingWorkItemHandler;
 import org.jbpm.process.test.Person;

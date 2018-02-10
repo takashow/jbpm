@@ -1,12 +1,28 @@
+/*
+ * Copyright 2017 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jbpm.services.task.wih;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import org.jbpm.services.task.lifecycle.listeners.TaskLifeCycleEventListener;
 import org.jbpm.services.task.utils.ContentMarshallerHelper;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.task.TaskEvent;
+import org.kie.api.task.TaskLifeCycleEventListener;
 import org.kie.api.task.TaskService;
 import org.kie.api.task.model.Content;
 import org.kie.api.task.model.Status;
@@ -29,7 +45,7 @@ public class NonManagedTaskEventListener implements TaskLifeCycleEventListener {
         if (task.getTaskData().getStatus() == Status.Completed) {
             String userId = task.getTaskData().getActualOwner().getId();
             Map<String, Object> results = new HashMap<String, Object>();
-            results.put("ActorId", userId);
+            
             long contentId = task.getTaskData().getOutputContentId();
             if (contentId != -1) {
                 Content content = taskService.getContentById(contentId);
@@ -44,9 +60,10 @@ public class NonManagedTaskEventListener implements TaskLifeCycleEventListener {
                         }
                     }
                 }
-
+                results.put("ActorId", userId);
                 ksession.getWorkItemManager().completeWorkItem(task.getTaskData().getWorkItemId(), results);
             } else {
+            	results.put("ActorId", userId);
             	ksession.getWorkItemManager().completeWorkItem(workItemId, results);
             }
         } else {
@@ -243,6 +260,39 @@ public class NonManagedTaskEventListener implements TaskLifeCycleEventListener {
 	@Override
 	public void afterTaskNominatedEvent(TaskEvent event) {
 
+	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result
+				+ ((ksession == null) ? 0 : ksession.hashCode());
+		result = prime * result
+				+ ((taskService == null) ? 0 : taskService.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		NonManagedTaskEventListener other = (NonManagedTaskEventListener) obj;
+		if (ksession == null) {
+			if (other.ksession != null)
+				return false;
+		} else if (!ksession.equals(other.ksession))
+			return false;
+		if (taskService == null) {
+			if (other.taskService != null)
+				return false;
+		} else if (!taskService.equals(other.taskService))
+			return false;
+		return true;
 	}
 
 }
